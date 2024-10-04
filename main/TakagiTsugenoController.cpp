@@ -35,6 +35,15 @@ TkTsController<ControlLawInput>::TkTsController(
 )
 : fuzzyficator(_fuzzyficator), control_laws(_control_laws)
 {}
+template <typename ControlLawInput>
+TkTsController<ControlLawInput>::TkTsController (
+	std::initializer_list<Mem_func> _fuzzyficator,
+	const std::vector<
+		std::function<float(ControlLawInput, float)>
+	> &_control_laws
+)
+: fuzzyficator(_fuzzyficator), control_laws(_control_laws)
+{}
 
 template <typename ControlLawInput>
 const std::vector<

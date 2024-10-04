@@ -36,6 +36,12 @@ class TkTsController {
 				std::function<float(ControlLawInput, float)>
 			> &_control_laws
 		);
+		TkTsController(
+			std::initializer_list<Mem_func> _fuzzyficator,
+			const std::vector<
+				std::function<float(ControlLawInput, float)>
+			> &_control_laws
+		);
 
 		const std::vector<
 			std::function<float(ControlLawInput, float)>,

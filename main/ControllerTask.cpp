@@ -25,9 +25,9 @@ class ControllerTask : public Task {
 			QueueHandle_t _refer_speed,
 			QueueHandle_t _motor_speed,
 			std::initializer_list<Mem_func> _membership_functions,
-			std::initializer_list<
+			const std::vector<
 				std::function<float(float, float)>
-			> _control_laws
+			> &_control_laws
 		)
 		: Task(name, stack_size, 2),
 		  controller(_membership_functions, _control_laws),
@@ -42,9 +42,9 @@ class ControllerTask : public Task {
 				int  offset = 0;
 				float mu[N_FUZZY] = {0};
 
-				float motor_speed_f = 0.0f;
+				static float motor_speed_f = 0.0f;
 				(void)xQueueReceive(motor_speed, &motor_speed_f, 10);
-				float refer_speed_f = 0.0f;
+				static float refer_speed_f = 0.0f;
 				(void)xQueueReceive(refer_speed, &refer_speed_f, 10);
 
 				float u = controller(motor_speed_f, motor_speed_f, refer_speed_f);

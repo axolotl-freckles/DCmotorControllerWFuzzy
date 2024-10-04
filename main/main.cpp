@@ -26,7 +26,8 @@ esp_err_t set_adc(
 	adc_channel_t  adc_channel
 );
 
-QueueHandle_t adc_refer_speed = xQueueCreate(8, sizeof(float));
+QueueHandle_t refer_speed_q = xQueueCreate(2, sizeof(float));
+QueueHandle_t motor_speed_q = xQueueCreate(2, sizeof(float));
 
 void status_update(void* argp) {
 	const float MIN = -20.0f, MAX = 20.0f;
@@ -35,8 +36,11 @@ void status_update(void* argp) {
 	(void)adc_oneshot_read(adc_handle, ADC_CHANNEL_0, &adc_read);
 
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-	float motor_speed = (float)adc_read*(MAX-MIN)/(float)(0b111111111) + MIN;
-	xQueueSendFromISR(adc_refer_speed, &motor_speed, &xHigherPriorityTaskWoken);
+	float refer_speed = (float)adc_read*(MAX-MIN)/(float)(0b111111111) + MIN;
+	xQueueSendFromISR(refer_speed_q, &refer_speed, &xHigherPriorityTaskWoken);
+
+	float motor_speed = 10.0f;
+	xQueueSendFromISR(motor_speed_q, &motor_speed, &xHigherPriorityTaskWoken);
 }
 
 void app_main(void)
@@ -59,39 +63,25 @@ void app_main(void)
 	esp_timer_create(&timer_config, &timer_handle);
 	esp_timer_start_periodic(timer_handle, 100000);
 
-	Fuzzyficator fuzzyficator = {
-		Tria_memf(-20.0f, -15.0f, -7.5f, -1),
-		Tria_memf(-15.0f, - 7.5f,  0.0f),
-		Tria_memf(- 7.5f,   0.0f,  7.5f),
-		Tria_memf(  0.0f,   7.5f, 15.0f),
-		Tria_memf(  7.5f,  15.0f, 20.0f, 1)
-	};
-
-	float mu[5] = {0};
-	
-	TkTsController<float> controller(
-		fuzzyficator,
+	ControllerTask controllerTask(
+		"Controller Task", 2024,
+		refer_speed_q,
+		motor_speed_q,
+		{
+			Tria_memf(-20.0f, -15.0f, -7.5f, -1),
+			Tria_memf(-15.0f, - 7.5f,  0.0f),
+			Tria_memf(- 7.5f,   0.0f,  7.5f),
+			Tria_memf(  0.0f,   7.5f, 15.0f),
+			Tria_memf(  7.5f,  15.0f, 20.0f, 1)
+		},
 		CONTROL_LAWS()
 	);
 
 	(void)printf("\n\n");
 
+	controllerTask.start();
 	while (true) {
-		char buffer[10+7*5+10+1] = {0};
-		int  offset = 0;
-
-		float motor_speed = 0.0;
-		(void)xQueueReceive(adc_refer_speed, &motor_speed, 10);
-		float u = controller(motor_speed, motor_speed, 0.0f);
-		fuzzyficator(motor_speed, mu);
-
-		offset = sprintf(buffer,"\r%6.2f: [", motor_speed);
-		for (int i=0; i<5; i++)
-			offset += sprintf(buffer+offset, " %6.3f", mu[i]);
-		offset += sprintf(buffer+offset, "] u:%6.2f", u);
-		(void)printf("%s", buffer);
-
-		vTaskDelay(50 / portTICK_PERIOD_MS);
+		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}
 }
 

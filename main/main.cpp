@@ -80,7 +80,7 @@ void app_main(void)
 		return;
 
 	// 1250000 HZ
-	if (innit_pwm(13, LEDC_CHANNEL_0, LEDC_TIMER_1, 20000, LEDC_TIMER_6_BIT, 0x0F, 0).esp_err)
+	if (innit_pwm(13, LEDC_CHANNEL_0, LEDC_TIMER_1, 20000, (ledc_timer_bit_t)PWM_RESOLUTION, 0x0F, 0).esp_err)
 		return;
 
 	printf("Configurando Interrupcion GPIO\n");
@@ -125,11 +125,12 @@ void app_main(void)
 		"Controller Task", 2400,
 		refer_speed_q,
 		motor_speed_q,
-		{
-			Tria_memf(-15.0f, - 7.5f,  0.0f, -1),
-			Tria_memf(- 7.5f,   0.0f,  7.5f),
-			Tria_memf(  0.0f,   7.5f, 15.0f,  1)
-		},
+		// {
+		// 	Tria_memf(-15.0f, - 7.5f,  0.0f, -1),
+		// 	Tria_memf(- 7.5f,   0.0f,  7.5f),
+		// 	Tria_memf(  0.0f,   7.5f, 15.0f,  1)
+		// },
+		{[](float val) -> float {return 1.0;}},
 		CONTROL_LAWS()
 	);
 

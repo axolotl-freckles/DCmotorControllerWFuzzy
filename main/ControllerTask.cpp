@@ -63,11 +63,11 @@ class ControllerTask : public Task {
 				// P I D
 				float plant[3] = {0};
 				plant[0] = refer_speed - motor_speed;
-				plant[1] = (plant[0] - prev_err)/SAMPLE_TIME_s;
-				plant[2] = prev_integr + plant[0]*SAMPLE_TIME_s;
+				plant[1] = prev_integr + plant[0]*SAMPLE_TIME_s;
+				plant[2] = (plant[0] - prev_err)/SAMPLE_TIME_s;
 
 				prev_err    = plant[0];
-				prev_integr = plant[2];
+				prev_integr = plant[1];
 
 				float u = controller(motor_speed, plant, refer_speed);
 				float real_u = u;
@@ -80,10 +80,10 @@ class ControllerTask : public Task {
 				const float OUT_MIN = 0.0f, OUT_MAX = 62.0f;
 
 				// float refer_speed = (float)adc_read*(MAX-MIN)/(float)(0b111111111) + MIN;
-				uint8_t pwm_out = (uint8_t)(u-OUT_MIN)*0b111111/(OUT_MAX-OUT_MIN);
+				uint8_t pwm_out = (uint8_t)(u-OUT_MIN)*PWM_MAX/(OUT_MAX-OUT_MIN);
 				pwm_out &= 0b111111;
-				pwm_out = std::min((uint8_t)0b111101, pwm_out);
-				pwm_out = std::max((uint8_t)0b000011, pwm_out);
+				pwm_out = std::min((uint8_t)(PWM_MAX-2), pwm_out);
+				pwm_out = std::max((uint8_t)3, pwm_out);
 
 				pwm_set_duty(LEDC_CHANNEL_0, pwm_out);
 

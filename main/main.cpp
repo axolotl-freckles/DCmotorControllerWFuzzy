@@ -7,7 +7,10 @@
 #include "esp_adc/adc_oneshot.h"
 #include "driver/ledc.h"
 #include "esp_timer.h"
+#include "esp_intr_alloc.h"
+#include "soc/soc.h"
 
+#include "globalVar.h"
 #include "pwm.h"
 
 #include "Fuzzyficator.hpp"
@@ -28,19 +31,46 @@ esp_err_t set_adc(
 
 QueueHandle_t refer_speed_q = xQueueCreate(2, sizeof(float));
 QueueHandle_t motor_speed_q = xQueueCreate(2, sizeof(float));
+QueueHandle_t motor_count_q = xQueueCreate(2, sizeof(int));
 
-void status_update(void* argp) {
-	const float MIN = -20.0f, MAX = 20.0f;
-	adc_oneshot_unit_handle_t adc_handle = (adc_oneshot_unit_handle_t)argp;
+typedef struct {
+	adc_oneshot_unit_handle_t adc_handle;
+	// volatile uint32_t *motor_counter;
+} timer_args;
+
+void IRAM_ATTR status_update(void* argp) {
+	const float REF_MIN = 200.f*(2*M_PI/60), REF_MAX = 400.0f*(2*M_PI/60);
+	// const float MOT_MIN = 0.0f, MOT_MAX = 500.0f;
+	timer_args *args = (timer_args*)argp;
+	adc_oneshot_unit_handle_t adc_handle = args->adc_handle;
 	int adc_read = 0;
 	(void)adc_oneshot_read(adc_handle, ADC_CHANNEL_0, &adc_read);
 
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-	float refer_speed = (float)adc_read*(MAX-MIN)/(float)(0b111111111) + MIN;
-	xQueueSendFromISR(refer_speed_q, &refer_speed, &xHigherPriorityTaskWoken);
+	float adc_value = (float)adc_read*(REF_MAX-REF_MIN)/(float)(0b111111111) + REF_MIN;
+	float refer_speed = adc_value; //adc_value;
+	float motor_speed = 0.0; //*(args->motor_counter);
+	// *(args->motor_counter) = 0;
 
-	float motor_speed = 10.0f;
+	// 20 ranuras encoder, 20 intr por revolución
+	static int32_t motor_count = 0;
+	int32_t prev_count = motor_count;
+	xQueueReceiveFromISR(motor_count_q, &motor_count, &xHigherPriorityTaskWoken);
+	motor_speed = (float)(motor_count-prev_count) * (2.0*M_PI) / (20.0f*SAMPLE_TIME_s);
+
+	xQueueSendFromISR(refer_speed_q, &refer_speed, &xHigherPriorityTaskWoken);
 	xQueueSendFromISR(motor_speed_q, &motor_speed, &xHigherPriorityTaskWoken);
+
+	if (xHigherPriorityTaskWoken) {
+		portYIELD_FROM_ISR();
+	}
+}
+
+void count_encoder(void* args) {
+	BaseType_t higherTaskWoken = pdFALSE;
+	static int32_t motor_count = 0;
+	motor_count ++;
+	xQueueSendFromISR(motor_count_q, &motor_count, &higherTaskWoken);
 }
 
 void app_main(void)
@@ -49,34 +79,61 @@ void app_main(void)
 	if (set_adc(&adc0_handle, ADC_UNIT_1, ADC_BITWIDTH_9, ADC_CHANNEL_0))
 		return;
 
-	if (innit_pwm(13, LEDC_CHANNEL_0, LEDC_TIMER_1, 1250000, LEDC_TIMER_6_BIT, 0x0F, 0).esp_err)
+	// 1250000 HZ
+	if (innit_pwm(13, LEDC_CHANNEL_0, LEDC_TIMER_1, 20000, LEDC_TIMER_6_BIT, 0x0F, 0).esp_err)
+		return;
+
+	printf("Configurando Interrupcion GPIO\n");
+	// gpio_isr_handle_t gpio_intr;
+	// if (gpio_isr_register(count_encoder, NULL, ESP_INTR_FLAG_LEVEL1|ESP_INTR_FLAG_EDGE, &gpio_intr) != ESP_OK)
+	// 	return;
+	if (gpio_install_isr_service(0))
 		return;
 	
+	if (gpio_isr_handler_add((gpio_num_t)26, count_encoder, NULL))
+		return;
+	gpio_config_t motor_input_config = {
+		.pin_bit_mask = (1<<26),
+		.mode         = GPIO_MODE_INPUT,
+		.pull_up_en   = GPIO_PULLUP_DISABLE,
+		.pull_down_en = GPIO_PULLDOWN_ENABLE,
+		.intr_type    = GPIO_INTR_POSEDGE
+	};
+	printf("Configurando GPIO\n");
+	if (gpio_config(&motor_input_config) != ESP_OK)
+		return;
+	printf("Habilitando interrupcion\n");
+	if (gpio_intr_enable((gpio_num_t)26) != ESP_OK)
+		return;
+	
+	timer_args tmr_args = {
+		.adc_handle = adc0_handle
+		// .motor_counter = &motor_count
+	};
 	esp_timer_create_args_t timer_config = {
 		.callback = status_update,
-		.arg      = (void*)adc0_handle,
+		.arg      = (void*)&tmr_args,
 		.dispatch_method = ESP_TIMER_TASK,
 		.name = "Plant status update",
 		.skip_unhandled_events = false
 	};
 	esp_timer_handle_t timer_handle;
 	esp_timer_create(&timer_config, &timer_handle);
-	esp_timer_start_periodic(timer_handle, 100000);
+	esp_timer_start_periodic(timer_handle, SAMPLE_PERIOD_us);
 
 	ControllerTask controllerTask(
-		"Controller Task", 2024,
+		"Controller Task", 2400,
 		refer_speed_q,
 		motor_speed_q,
 		{
-			Tria_memf(-20.0f, -15.0f, -7.5f, -1),
-			Tria_memf(-15.0f, - 7.5f,  0.0f),
+			Tria_memf(-15.0f, - 7.5f,  0.0f, -1),
 			Tria_memf(- 7.5f,   0.0f,  7.5f),
-			Tria_memf(  0.0f,   7.5f, 15.0f),
-			Tria_memf(  7.5f,  15.0f, 20.0f, 1)
+			Tria_memf(  0.0f,   7.5f, 15.0f,  1)
 		},
 		CONTROL_LAWS()
 	);
 
+	esp_intr_dump(NULL);
 	(void)printf("\n\n");
 
 	controllerTask.start();

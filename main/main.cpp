@@ -38,25 +38,26 @@ typedef struct {
 	// volatile uint32_t *motor_counter;
 } timer_args;
 
-void IRAM_ATTR status_update(void* argp) {
-	const float REF_MIN = 50.f*(2*M_PI/60), REF_MAX = 400.0f*(2*M_PI/60);
-	// const float MOT_MIN = 0.0f, MOT_MAX = 500.0f;
+void IRAM_ATTR send_status(void* argp) {
 	timer_args *args = (timer_args*)argp;
 	adc_oneshot_unit_handle_t adc_handle = args->adc_handle;
+	const float REF_MIN = 50.f*(2*M_PI/60), REF_MAX = 400.0f*(2*M_PI/60);
+	const int N_ENCODER_SLITS = 20;
+
 	int adc_read = 0;
 	(void)adc_oneshot_read(adc_handle, ADC_CHANNEL_0, &adc_read);
 
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 	float adc_value = (float)adc_read*(REF_MAX-REF_MIN)/(float)(0b111111111) + REF_MIN;
-	float refer_speed = adc_value; //adc_value;
-	float motor_speed = 0.0; //*(args->motor_counter);
-	// *(args->motor_counter) = 0;
+
+	float refer_speed = adc_value;
+	float motor_speed = 0.0;
 
 	// 20 ranuras encoder, 20 intr por revolución
 	static int32_t motor_count = 0;
 	int32_t prev_count = motor_count;
 	xQueueReceiveFromISR(motor_count_q, &motor_count, &xHigherPriorityTaskWoken);
-	motor_speed = (float)(motor_count-prev_count) * (2.0*M_PI) / (20.0f*SAMPLE_TIME_s);
+	motor_speed = (float)(motor_count-prev_count)*2.0f*M_PI / (N_ENCODER_SLITS*SAMPLE_TIME_s);
 
 	xQueueSendFromISR(refer_speed_q, &refer_speed, &xHigherPriorityTaskWoken);
 	xQueueSendFromISR(motor_speed_q, &motor_speed, &xHigherPriorityTaskWoken);
@@ -79,19 +80,24 @@ void app_main(void)
 	if (set_adc(&adc0_handle, ADC_UNIT_1, ADC_BITWIDTH_9, ADC_CHANNEL_0))
 		return;
 
-	// 1250000 HZ
-	if (innit_pwm(13, LEDC_CHANNEL_0, LEDC_TIMER_1, 20000, (ledc_timer_bit_t)PWM_RESOLUTION, 0x0F, 1).esp_err)
+	if (
+		innit_pwm (
+			13, LEDC_CHANNEL_0, LEDC_TIMER_1,
+			20000, (ledc_timer_bit_t)PWM_RESOLUTION,
+			0x0F, 1
+		).esp_err
+	)
+	{
 		return;
+	}
 
 	printf("Configurando Interrupcion GPIO\n");
-	// gpio_isr_handle_t gpio_intr;
-	// if (gpio_isr_register(count_encoder, NULL, ESP_INTR_FLAG_LEVEL1|ESP_INTR_FLAG_EDGE, &gpio_intr) != ESP_OK)
-	// 	return;
 	if (gpio_install_isr_service(0))
 		return;
 	
 	if (gpio_isr_handler_add((gpio_num_t)26, count_encoder, NULL))
 		return;
+
 	gpio_config_t motor_input_config = {
 		.pin_bit_mask = (1<<26),
 		.mode         = GPIO_MODE_INPUT,
@@ -108,10 +114,9 @@ void app_main(void)
 	
 	timer_args tmr_args = {
 		.adc_handle = adc0_handle
-		// .motor_counter = &motor_count
 	};
 	esp_timer_create_args_t timer_config = {
-		.callback = status_update,
+		.callback = send_status,
 		.arg      = (void*)&tmr_args,
 		.dispatch_method = ESP_TIMER_TASK,
 		.name = "Plant status update",
@@ -124,17 +129,9 @@ void app_main(void)
 	ControllerTask controllerTask(
 		"Controller Task", 2400,
 		refer_speed_q,
-		motor_speed_q,
-		// {
-		// 	Tria_memf(-15.0f, - 7.5f,  0.0f, -1),
-		// 	Tria_memf(- 7.5f,   0.0f,  7.5f),
-		// 	Tria_memf(  0.0f,   7.5f, 15.0f,  1)
-		// },
-		{[](float val) -> float {return 1.0;}},
-		CONTROL_LAWS()
+		motor_speed_q
 	);
 
-	esp_intr_dump(NULL);
 	(void)printf("\n\n");
 
 	controllerTask.start();

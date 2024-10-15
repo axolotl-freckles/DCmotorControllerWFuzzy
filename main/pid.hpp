@@ -7,6 +7,10 @@ class Integrator {
 
 	public:
 		Integrator(const float _SAMPLE_TIME_s, const float starting_value = 0.0f);
+		Integrator(const Integrator &_other);
+
+		float getSampleTime() const;
+		float getIntegralAcumulator() const;
 
 		/**
 		 * @brief Calculates the integral of the given value
@@ -24,6 +28,10 @@ class Derivator {
 
 	public:
 		Derivator(const float _SAMPLE_TIME_S, const float starting_value = 0.0f);
+		Derivator(const Derivator &_other);
+
+		float getSampleTime() const;
+		float getPreviousValue() const;
 		
 		/**
 		 * @brief Calculates the derivative of the given value
@@ -64,6 +72,23 @@ class PIDController {
 			const float integrator_starting_value = 0.0f,
 			const float derivator_starting_value  = 0.0f
 		);
+		PIDController (
+			const PIDController &_other
+		);
+
+		float getSampleTime() const;
+		const Derivator&  getDerivator() const;
+		const Integrator& getIntegrator() const;
+
+		/**
+		 * @brief Get the K gains of the controller
+		 * 
+		 * @param out primitive array of size 3 where the gains are to be copied
+		 */
+		void getKs(float *out) const;
+
+		float getSaturatorMin() const;
+		float getSaturatorMax() const;
 
 		/**
 		 * @brief Adds anti-windup functionality to the PID controller

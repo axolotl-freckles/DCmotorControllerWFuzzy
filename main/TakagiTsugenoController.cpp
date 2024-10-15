@@ -6,70 +6,69 @@
 
 #include "TakagiTsugenoController.hpp"
 
-template <typename ControlLawInput>
-TkTsController<ControlLawInput>::TkTsController(const TkTsController &_tkts_controller)
-: control_laws(_tkts_controller.begin(), _tkts_controller.end())
-{}
-template <typename ControlLawInput>
-TkTsController<ControlLawInput>::TkTsController (
+TkTsController::TkTsController (const TkTsController &_tkts_controller)
+:
+	fuzzyficator(_tkts_controller.getFuzzyficator()),
+	control_laws(_tkts_controller.begin(), _tkts_controller.end())
+{
+	assert(fuzzyficator.size() == control_laws.size());
+}
+TkTsController::TkTsController (
 	std::initializer_list<Mem_func> _fuzzyficator,
-	std::initializer_list<std::function<float(ControlLawInput, float)>> _control_laws
+	std::initializer_list<PIDController> _PID_controllers
+)
+: fuzzyficator(_fuzzyficator), control_laws(_PID_controllers)
+{
+	assert(fuzzyficator.size() == control_laws.size());
+}
+TkTsController::TkTsController (
+	const Fuzzyficator &_fuzzyficator,
+	std::initializer_list<PIDController> _PID_controllers
+)
+: fuzzyficator(_fuzzyficator), control_laws(_PID_controllers)
+{
+	assert(fuzzyficator.size() == control_laws.size());
+}
+TkTsController::TkTsController (
+	const Fuzzyficator &_fuzzyficator,
+	const std::vector<PIDController> &_PID_controllers
+)
+: fuzzyficator(_fuzzyficator), control_laws(_PID_controllers)
+{
+	assert(fuzzyficator.size() == control_laws.size());
+}
+TkTsController::TkTsController (
+	std::initializer_list<Mem_func> _fuzzyficator,
+	const std::vector<PIDController> &_control_laws
 )
 : fuzzyficator(_fuzzyficator), control_laws(_control_laws)
 {
 	assert(fuzzyficator.size() == control_laws.size());
 }
-template <typename ControlLawInput>
-TkTsController<ControlLawInput>::TkTsController (
-	const Fuzzyficator &_fuzzyficator,
-	std::initializer_list<std::function<float(ControlLawInput, float)>> _control_laws
-)
-: fuzzyficator(_fuzzyficator), control_laws(_control_laws)
-{
-	assert(fuzzyficator.size() == control_laws.size());
-}
-template <typename ControlLawInput>
-TkTsController<ControlLawInput>::TkTsController(
-	const Fuzzyficator &_fuzzyficator,
-	const std::vector<std::function<float(ControlLawInput, float)>> &_control_laws
-)
-: fuzzyficator(_fuzzyficator), control_laws(_control_laws)
-{}
-template <typename ControlLawInput>
-TkTsController<ControlLawInput>::TkTsController (
-	std::initializer_list<Mem_func> _fuzzyficator,
-	const std::vector<
-		std::function<float(ControlLawInput, float)>
-	> &_control_laws
-)
-: fuzzyficator(_fuzzyficator), control_laws(_control_laws)
-{}
 
-template <typename ControlLawInput>
 const std::vector<
-	std::function<float(ControlLawInput, float)>,
-	std::allocator<std::function<float(ControlLawInput, float)>>
+	PIDController,
+	std::allocator<PIDController>
 >::const_iterator
-TkTsController<ControlLawInput>::begin() const {
+TkTsController::begin() const {
 	return control_laws.begin();
 }
-template <typename ControlLawInput>
 const std::vector<
-	std::function<float(ControlLawInput, float)>,
-	std::allocator<std::function<float(ControlLawInput, float)>>
+	PIDController,
+	std::allocator<PIDController>
 >::const_iterator
-TkTsController<ControlLawInput>::end() const {
+TkTsController::end() const {
 	return control_laws.end();
 }
 
-template <typename ControlLawInput>
-float TkTsController<ControlLawInput>::operator() (float value, ControlLawInput sys_values, float reference)
+float TkTsController::operator() (float fuzzyficable_val, float input)
 {
 	std::vector<float> mu(fuzzyficator.size());
 	std::vector<float> control_out(fuzzyficator.size());
-	(void)fuzzyficator(value, mu);
+	(void)fuzzyficator(fuzzyficable_val, mu);
+
 	for (size_t i=0; i<fuzzyficator.size(); i++) {
-		control_out[i] = control_laws[i](sys_values, reference);
+		control_out[i] = control_laws[i](input);
 	}
 
 	float acum = std::inner_product(mu.begin(), mu.end(), control_out.begin(), 0.0f);

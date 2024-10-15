@@ -6,7 +6,12 @@
 Integrator::Integrator (const float _SAMPLE_TIME_s, const float starting_value)
 : SAMPLE_TIME_s(_SAMPLE_TIME_s), integral_acum(starting_value)
 {}
+Integrator::Integrator (const Integrator &_other)
+: SAMPLE_TIME_s(_other.getSampleTime()), integral_acum(_other.getIntegralAcumulator())
+{}
 
+float Integrator::getSampleTime()         const { return SAMPLE_TIME_s; }
+float Integrator::getIntegralAcumulator() const { return integral_acum; }
 float Integrator::operator() (float value) {
 	integral_acum += value*SAMPLE_TIME_s;
 	return integral_acum;
@@ -16,7 +21,12 @@ float Integrator::operator() (float value) {
 Derivator::Derivator (const float _SAMPLE_TIME_s, const float starting_value)
 : SAMPLE_TIME_s(_SAMPLE_TIME_s), prev_val(starting_value)
 {}
+Derivator::Derivator (const Derivator &_other)
+: SAMPLE_TIME_s(_other.getSampleTime()), prev_val(_other.getPreviousValue())
+{}
 
+float Derivator::getSampleTime()    const { return SAMPLE_TIME_s; }
+float Derivator::getPreviousValue() const { return prev_val; }
 float Derivator::operator() (float value) {
 	float out = (value - prev_val)/SAMPLE_TIME_s;
 	prev_val = value;
@@ -60,6 +70,31 @@ PIDController::PIDController (
 	K_gains[KI] = _K_gains[KI];
 	K_gains[KD] = _K_gains[KD];
 }
+PIDController::PIDController (
+	const PIDController &_other
+)
+:
+	SAMPLE_TIME_s(_other.getSampleTime()),
+	intgr(_other.getIntegrator()),
+	deriv(_other.getDerivator()),
+	saturator_max(_other.getSaturatorMax()),
+	saturator_min(_other.getSaturatorMin()),
+	integral(_other.getIntegrator().getIntegralAcumulator())
+{
+	_other.getKs(K_gains);
+}
+
+float PIDController::getSampleTime() const { return SAMPLE_TIME_s; }
+const Derivator&  PIDController::getDerivator()  const { return deriv; }
+const Integrator& PIDController::getIntegrator() const { return intgr; }
+
+void PIDController::getKs(float *out) const {
+	out[KP] = K_gains[KP];
+	out[KI] = K_gains[KI];
+	out[KD] = K_gains[KD];
+}
+float PIDController::getSaturatorMin() const { return saturator_min; }
+float PIDController::getSaturatorMax() const { return saturator_max; }
 
 void PIDController::addAntiWindup(float _saturator_min, float _saturator_max) {
 	saturator_max = _saturator_max;

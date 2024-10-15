@@ -91,7 +91,7 @@ public:
 			float u   = pid(err);
 			float real_u = u;
 
-			const float U_MIN = 0.1f, U_MAX = 0.95f;
+			const float U_MIN = 0.17f, U_MAX = 0.95f;
 			uint8_t pwm_out = (uint8_t)(std::clamp(u, U_MIN, U_MAX)*PWM_MAX);
 			pwm_out &= PWM_MAX;
 

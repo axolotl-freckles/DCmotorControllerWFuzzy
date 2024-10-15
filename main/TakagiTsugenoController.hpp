@@ -42,5 +42,13 @@ class TkTsController {
 
 		const Fuzzyficator& getFuzzyficator() const;
 
+		/**
+		 * @brief Calculates the control signal u using Takagi-Tsugeno
+		 * fuzzy logic
+		 * 
+		 * @param fuzzyficable_val value that determines the fuzzyfication
+		 * @param input value to pass to the PID controllers
+		 * @return u
+		 */
 		float operator() (float fuzzyficable_val, float input);
 };

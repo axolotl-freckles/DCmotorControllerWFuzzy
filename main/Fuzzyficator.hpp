@@ -122,6 +122,36 @@ struct Bell_memf {
 	Bell_memf(const float std_dev, const float mid, const int edge=0);
 	float operator()(const float value);
 };
+
+/**
+ * @brief Triangle membership function
+ * 
+ * @param value Value to calculate the membership
+ * @param a 
+ * @param m 
+ * @param c 
+ * @return mu [0-1]
+ */
 float tria_memf(const float value, const float a, const float m, const float c);
+
+/**
+ * @brief Trapezoidal membership function
+ * 
+ * @param value Value to calculate the membership
+ * @param a 
+ * @param b 
+ * @param c 
+ * @param d 
+ * @return mu [0-1]
+ */
 float trap_memf(const float value, const float a, const float b, const float c, const float d);
+
+/**
+ * @brief Bell curve membership function
+ * 
+ * @param value Value to calculate the membership
+ * @param std_dev 
+ * @param mid 
+ * @return mu [0-1]
+ */
 float bell_memf(const float value, const float std_dev, const float mid);

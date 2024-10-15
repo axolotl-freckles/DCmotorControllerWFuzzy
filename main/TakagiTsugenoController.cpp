@@ -61,6 +61,10 @@ TkTsController::end() const {
 	return control_laws.end();
 }
 
+const Fuzzyficator& TkTsController::getFuzzyficator() const {
+	return fuzzyficator;
+}
+
 float TkTsController::operator() (float fuzzyficable_val, float input)
 {
 	std::vector<float> mu(fuzzyficator.size());

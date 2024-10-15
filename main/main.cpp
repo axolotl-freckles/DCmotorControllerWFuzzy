@@ -39,7 +39,7 @@ typedef struct {
 } timer_args;
 
 void IRAM_ATTR status_update(void* argp) {
-	const float REF_MIN = 200.f*(2*M_PI/60), REF_MAX = 400.0f*(2*M_PI/60);
+	const float REF_MIN = 50.f*(2*M_PI/60), REF_MAX = 400.0f*(2*M_PI/60);
 	// const float MOT_MIN = 0.0f, MOT_MAX = 500.0f;
 	timer_args *args = (timer_args*)argp;
 	adc_oneshot_unit_handle_t adc_handle = args->adc_handle;
@@ -80,7 +80,7 @@ void app_main(void)
 		return;
 
 	// 1250000 HZ
-	if (innit_pwm(13, LEDC_CHANNEL_0, LEDC_TIMER_1, 20000, (ledc_timer_bit_t)PWM_RESOLUTION, 0x0F, 0).esp_err)
+	if (innit_pwm(13, LEDC_CHANNEL_0, LEDC_TIMER_1, 20000, (ledc_timer_bit_t)PWM_RESOLUTION, 0x0F, 1).esp_err)
 		return;
 
 	printf("Configurando Interrupcion GPIO\n");

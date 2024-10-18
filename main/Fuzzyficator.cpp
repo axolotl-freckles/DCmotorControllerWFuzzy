@@ -5,6 +5,9 @@
 
 #include <math.h>
 
+Fuzzyficator::Fuzzyficator()
+: mem_funcs({[] (float value) -> float {return 1.0;}})
+{}
 Fuzzyficator::Fuzzyficator(std::initializer_list<Mem_func> _membership_functions)
 : mem_funcs(_membership_functions)
 {}
@@ -15,7 +18,6 @@ Fuzzyficator::~Fuzzyficator() {
 	mem_funcs.~vector();
 }
 
-size_t Fuzzyficator::size() const { return mem_funcs.size(); }
 const std::vector<Mem_func, std::allocator<Mem_func>>::const_iterator
 Fuzzyficator::begin() const {
 	return mem_funcs.begin();

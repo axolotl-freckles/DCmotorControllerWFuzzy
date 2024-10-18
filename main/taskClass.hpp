@@ -37,19 +37,19 @@ SOFTWARE.
 extern "C" {
 
 class Task {
-	private:
-		const char*  taskName;
-		uint32_t     stackSize;
-		UBaseType_t  priority;
-		TaskHandle_t taskHandle;
-	public:
-		Task(const char* name, uint32_t stack_size, UBaseType_t prio);
-		~Task();
+public:
+	Task(const char* name, uint32_t stack_size, UBaseType_t prio);
+	~Task();
 
-		virtual void taskFunction() = 0;
+	virtual void taskFunction() = 0;
 
-		void start();
-		void stop();
+	void start();
+	void stop();
+private:
+	const char*  taskName;
+	uint32_t     stackSize;
+	UBaseType_t  priority;
+	TaskHandle_t taskHandle;
 };
 
 }

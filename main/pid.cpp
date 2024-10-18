@@ -3,6 +3,8 @@
 
 #include "pid.hpp"
 
+#include <math.h>
+
 Integrator::Integrator (const float _SAMPLE_TIME_s, const float starting_value)
 : SAMPLE_TIME_s(_SAMPLE_TIME_s), integral_acum(starting_value)
 {}

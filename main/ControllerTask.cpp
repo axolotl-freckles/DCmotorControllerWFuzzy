@@ -1,3 +1,13 @@
+/**
+ * @file ControllerTask.cpp
+ * @author ACMAX (aavaloscorrales@gmail.com), Zyanya
+ * @brief 
+ * @version 0.1
+ * @date 2024-10-18
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
 #ifndef CONTROLLER_TASK_CPP
 #define CONTROLLER_TASK_CPP
 
@@ -48,13 +58,32 @@ public:
 			0.02f, 0.005f, 0.0003f
 		);
 		pid.addAntiWindup(0.0, 1.0);
+
+		TkTsController takagi (
+			{
+				Tria_memf(-10.0, 0.0, 100.0, -1),
+				Tria_memf(0.0, 100.0, 200.0),
+				Tria_memf(100.0, 200.0, 300.0),
+				Tria_memf(200.0, 300.0, 400.0),
+				Tria_memf(300.0, 400.0, 410.0, 1)
+			},
+			{
+				PIDController(pid),
+				PIDController(pid),
+				PIDController(pid),
+				PIDController(pid),
+				PIDController(pid)
+			}
+		);
+		const int N_FUZZY = takagi.fuzzyficator().size();
+		float mu[N_FUZZY] = {0};
+
 		const int N_PREV_SPEEDS = 10;
 		float prev_motor_speeds[N_PREV_SPEEDS] = {0};
 		int   motor_idx = 0;
 
 		float motor_speed = 0.0f;
 		float refer_speed = 0.0f;
-
 
 		float t = 0.0f;
 		float bezier_speed_ref = 0.0f;
@@ -88,7 +117,9 @@ public:
 			}
 
 			float err = bezier_speed_ref - motor_speed;
-			float u   = pid(err);
+			// float u   = pid(err);
+			float u = takagi(rad_s2rpm(motor_speed), err);
+			takagi.fuzzyficator()(rad_s2rpm(motor_speed), mu);
 			float real_u = u;
 
 			const float U_MIN = 0.17f, U_MAX = 0.95f;
@@ -97,12 +128,14 @@ public:
 
 			pwm_set_duty(LEDC_CHANNEL_0, pwm_out);
 
-			char buffer[29+21+1] = {0};
+			char buffer[29+N_FUZZY*4+22+1] = {0};
 			int  offset = 0;
 			offset  = sprintf(buffer       ,"\rR:%6.2f ", rad_s2rpm(refer_speed));
 			offset += sprintf(buffer+offset,  "M:%6.2f ", rad_s2rpm(motor_speed));
-			offset += sprintf(buffer+offset,  "e:%9.2f ", err);
-			offset += sprintf(buffer+offset,  "=> u:%9.2e o: %2d", real_u, pwm_out);
+			offset += sprintf(buffer+offset,  "e:%6.2f [", err);
+			for (int i=0; i<N_FUZZY; i++)
+				offset += sprintf(buffer+offset, "%3.1f ", mu[i]);
+			offset += sprintf(buffer+offset,  "] => u:%9.2e o: %2d", real_u, pwm_out);
 			(void)printf("%s", buffer);
 
 			vTaskDelay(80 / portTICK_PERIOD_MS);

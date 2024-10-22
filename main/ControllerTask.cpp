@@ -72,7 +72,7 @@ public:
 		);
 		float mu[N_FUZZY] = {0};
 
-		const int N_PREV_SPEEDS = 10;
+		const int N_PREV_SPEEDS = 6;
 		float prev_motor_speeds[N_PREV_SPEEDS] = {0};
 		int   motor_idx = 0;
 

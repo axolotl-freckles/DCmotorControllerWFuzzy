@@ -53,12 +53,22 @@ public:
 	{}
 
 	void taskFunction() {
-		PIDController pid(
-			SAMPLE_TIME_s,
-			0.02f, 0.005f, 0.0003f
-		);
-		pid.addAntiWindup(0.0, 1.0);
+		// PIDController pid(
+		// 	SAMPLE_TIME_s,
+		// 	0.02f, 0.005f, 0.0003f
+		// );
+		// pid.addAntiWindup(0.0, 1.0);
 		const int N_FUZZY = 5;
+
+		std::vector<PIDController> pids = {
+			PIDController(SAMPLE_TIME_s, 10.6534, 8.7664, 0.0),
+			PIDController(SAMPLE_TIME_s, 10.3998, 8.9971, 0.0),
+			PIDController(SAMPLE_TIME_s, 10.1461, 9.2278, 0.0),
+			PIDController(SAMPLE_TIME_s,  9.8924, 9.4585, 0.0),
+			PIDController(SAMPLE_TIME_s,  9.6388, 9.6892, 0.0)
+		};
+		for (PIDController &pid : pids)
+			pid.addAntiWindup(0.0, 1.0);
 
 		TkTsController takagi (
 			{
@@ -68,7 +78,7 @@ public:
 				Tria_memf(200.0, 300.0, 400.0),
 				Tria_memf(300.0, 400.0, 410.0, 1)
 			},
-			std::vector<PIDController>(N_FUZZY, pid)
+			pids
 		);
 		float mu[N_FUZZY] = {0};
 
@@ -115,8 +125,10 @@ public:
 			float u = takagi(rad_s2rpm(motor_speed), err);
 			takagi.fuzzyficator()(rad_s2rpm(motor_speed), mu);
 
-			const float U_MIN = 0.17f, U_MAX = 0.95f;
-			uint8_t pwm_out = (uint8_t)(std::clamp(u, U_MIN, U_MAX)*PWM_MAX);
+			const float U_MIN = 0.0f, U_MAX = 24.0f;
+			u = std::clamp(u, U_MIN, U_MAX);
+			const float OUT_MIN = 0.17f, OUT_MAX = 0.95f;
+			uint8_t pwm_out = (uint8_t)(std::clamp((u-U_MIN)/(U_MAX-U_MIN), OUT_MIN, OUT_MAX)*PWM_MAX);
 			pwm_out &= PWM_MAX;
 
 			pwm_set_duty(LEDC_CHANNEL_0, pwm_out);

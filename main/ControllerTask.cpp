@@ -125,7 +125,7 @@ public:
 			float u = takagi(rad_s2rpm(motor_speed), err);
 			takagi.fuzzyficator()(rad_s2rpm(motor_speed), mu);
 
-			const float U_MIN = 0.0f, U_MAX = 24.0f;
+			const float U_MIN = 0.0f, U_MAX = 30.0f;
 			u = std::clamp(u, U_MIN, U_MAX);
 			const float OUT_MIN = 0.17f, OUT_MAX = 0.95f;
 			uint8_t pwm_out = (uint8_t)(std::clamp((u-U_MIN)/(U_MAX-U_MIN), OUT_MIN, OUT_MAX)*PWM_MAX);

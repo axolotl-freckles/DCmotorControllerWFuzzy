@@ -11,3 +11,6 @@ inline float rpm2rad_s(const float val) {return val*(2*M_PI/60);}
 
 constexpr int PWM_RESOLUTION = 6;
 constexpr int PWM_MAX        = (1<<PWM_RESOLUTION)-1;
+
+constexpr int ENCODER_GPIO = 26;
+constexpr int PWM_OUT_GPIO = 12;

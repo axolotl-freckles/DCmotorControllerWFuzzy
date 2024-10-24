@@ -82,9 +82,9 @@ void app_main(void)
 
 	if (
 		innit_pwm (
-			13, LEDC_CHANNEL_0, LEDC_TIMER_1,
+			PWM_OUT_GPIO, LEDC_CHANNEL_0, LEDC_TIMER_1,
 			20000, (ledc_timer_bit_t)PWM_RESOLUTION,
-			0x0F, 1
+			0x0F, 0
 		).esp_err
 	)
 	{
@@ -95,11 +95,11 @@ void app_main(void)
 	if (gpio_install_isr_service(0))
 		return;
 	
-	if (gpio_isr_handler_add((gpio_num_t)26, count_encoder, NULL))
+	if (gpio_isr_handler_add((gpio_num_t)ENCODER_GPIO, count_encoder, NULL))
 		return;
 
 	gpio_config_t motor_input_config = {
-		.pin_bit_mask = (1<<26),
+		.pin_bit_mask = (1<<ENCODER_GPIO),
 		.mode         = GPIO_MODE_INPUT,
 		.pull_up_en   = GPIO_PULLUP_DISABLE,
 		.pull_down_en = GPIO_PULLDOWN_ENABLE,
@@ -109,7 +109,7 @@ void app_main(void)
 	if (gpio_config(&motor_input_config) != ESP_OK)
 		return;
 	printf("Habilitando interrupcion\n");
-	if (gpio_intr_enable((gpio_num_t)26) != ESP_OK)
+	if (gpio_intr_enable((gpio_num_t)ENCODER_GPIO) != ESP_OK)
 		return;
 	
 	timer_args tmr_args = {

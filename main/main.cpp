@@ -129,7 +129,8 @@ void app_main(void)
 	ControllerTask controllerTask(
 		"Controller Task", 2400,
 		refer_speed_q,
-		motor_speed_q
+		motor_speed_q,
+		LEDC_CHANNEL_0
 	);
 
 	(void)printf("\n\n");

@@ -105,18 +105,18 @@ public:
 		float mu[N_FUZZY] = {0};
 
 		const Fuzzyficator errorFuzz {
-			Tria_memf(-10.0,   0.0, 100.0, -1),
-			Tria_memf(  0.0, 100.0, 200.0),
-			Tria_memf(100.0, 200.0, 300.0),
-			Tria_memf(200.0, 300.0, 400.0),
-			Tria_memf(300.0, 400.0, 410.0, 1)
+			Tria_memf(-210.0, -200.0, -100.0, -1),
+			Tria_memf(-200.0, -100.0,    0.0),
+			Tria_memf(-100.0,    0.0,  100.0),
+			Tria_memf(   0.0,  100.0,  200.0),
+			Tria_memf( 100.0,  200.0,  210.0, 1)
 		};
 		const Fuzzyficator errorDerivativeFuzz {
-			Tria_memf(-10.0,   0.0,  50.0, -1),
-			Tria_memf(  0.0,  50.0, 100.0),
-			Tria_memf( 50.0, 100.0, 150.0),
-			Tria_memf(100.0, 150.0, 200.0),
-			Tria_memf(150.0, 200.0, 210.0, 1)
+			Tria_memf(-110.0, -100.0,  -50.0, -1),
+			Tria_memf(-100.0,  -50.0,    0.0),
+			Tria_memf( -50.0,    0.0,   50.0),
+			Tria_memf(   0.0,   50.0,  100.0),
+			Tria_memf(  50.0,  100.0,  110.0, 1)
 		};
 		const vMatrix_t<float> FAM = {
 			{  CORR_GRANDE, CORR_MODERADA, CORR_POCA, CORR_POCA, CORR_ZERO},

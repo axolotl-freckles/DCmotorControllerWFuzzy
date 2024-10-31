@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <algorithm>
 #include <numeric>
+#include <chrono>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -28,6 +29,8 @@
 #include "pid.cpp"
 #include "k_values.h"
 #include "pwm.h"
+
+using namespace std::chrono;
 
 inline float bezierCurve(float t, float P0, float P1, float P2, float P3) {
 	const float oneMinusT = 1-t;
@@ -139,10 +142,14 @@ public:
 		float prev_refer_speed = 0.0f;
 
 		TickType_t x_last_time_awake = xTaskGetTickCount();
+		high_resolution_clock::time_point task_st;
+		high_resolution_clock::time_point task_en;
 
 		while (true) {
 			(void)xQueueReceive(motor_speed_q, &motor_speed, QUEUE_TIMEOUT);
 			(void)xQueueReceive(refer_speed_q, &refer_speed, QUEUE_TIMEOUT);
+
+			task_st = std::chrono::high_resolution_clock::now();
 
 			prev_motor_speeds[motor_idx] = motor_speed;
 			motor_idx = (motor_idx+1)%N_PREV_SPEEDS;
@@ -181,7 +188,10 @@ public:
 
 			pwm_set_duty(pwm_channel, pwm_out);
 
-			constexpr int BUFF_SIZE = 29+10+24+1;//29+N_FUZZY*4+23+1;
+			task_en = std::chrono::high_resolution_clock::now();
+			microseconds task_duration_us = duration_cast<microseconds>(task_en-task_st);
+
+			constexpr int BUFF_SIZE = 12+29+10+24+1;//29+N_FUZZY*4+23+1;
 			char buffer[BUFF_SIZE] = {0};
 			int  offset = 0;
 			// offset  = sprintf(buffer       ,"\rR:%6.2f ", rad_s2rpm(refer_speed));
@@ -191,8 +201,8 @@ public:
 			// 	offset += sprintf(buffer+offset, "%3.1f ", mu[i]);
 			// offset += sprintf(buffer+offset,  "] => u:%9.2e o: %3d", u, pwm_out);
 			offset += sprintf(buffer+offset,
-				"\rR:%6.2f e:%7.2fde:%7.2f => u%5.2f o:%4d",
-				rad_s2rpm(refer_speed), rad_s2rpm(err), rad_s2rpm(derror(err)), u, pwm_out
+				"\r[%7.1eus] R:%6.2f e:%7.2fde:%7.2f => u%5.2f o:%3d",
+				(float)task_duration_us.count(), rad_s2rpm(refer_speed), rad_s2rpm(err), rad_s2rpm(derror(err)), u, pwm_out
 			);
 			(void)printf("%s", buffer);
 

@@ -127,7 +127,7 @@ void app_main(void)
 	esp_timer_start_periodic(timer_handle, SAMPLE_PERIOD_us);
 
 	ControllerTask controllerTask(
-		"Controller Task", 2400,
+		"Controller Task", 2500,
 		refer_speed_q,
 		motor_speed_q,
 		LEDC_CHANNEL_0

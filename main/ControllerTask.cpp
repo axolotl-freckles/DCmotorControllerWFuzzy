@@ -81,51 +81,52 @@ public:
 		// 	0.02f, 0.005f, 0.0003f
 		// );
 		// pid.addAntiWindup(0.0, 1.0);
-		const int N_FUZZY = 5;
-		std::vector<PIDController> pids = {
-			PIDController(SAMPLE_TIME_s, 10.6534, 8.7664, 0.0),
-			PIDController(SAMPLE_TIME_s, 10.3998, 8.9971, 0.0),
-			PIDController(SAMPLE_TIME_s, 10.1461, 9.2278, 0.0),
-			PIDController(SAMPLE_TIME_s,  9.8924, 9.4585, 0.0),
-			PIDController(SAMPLE_TIME_s,  9.6388, 9.6892, 0.0)
-		};
-		for (PIDController &pid : pids)
-			pid.addAntiWindup(0.0, 30.0);
+		// const int N_FUZZY = 5;
+		// std::vector<PIDController> pids = {
+		// 	PIDController(SAMPLE_TIME_s, 10.6534, 8.7664, 0.0),
+		// 	PIDController(SAMPLE_TIME_s, 10.3998, 8.9971, 0.0),
+		// 	PIDController(SAMPLE_TIME_s, 10.1461, 9.2278, 0.0),
+		// 	PIDController(SAMPLE_TIME_s,  9.8924, 9.4585, 0.0),
+		// 	PIDController(SAMPLE_TIME_s,  9.6388, 9.6892, 0.0)
+		// };
+		// for (PIDController &pid : pids)
+		// 	pid.addAntiWindup(0.0, 30.0);
 
-		TkTsController takagi (
-			{
-				Tria_memf(-10.0, 0.0, 100.0, -1),
-				Tria_memf(0.0, 100.0, 200.0),
-				Tria_memf(100.0, 200.0, 300.0),
-				Tria_memf(200.0, 300.0, 400.0),
-				Tria_memf(300.0, 400.0, 410.0, 1)
-			},
-			pids
-		);
-		float mu[N_FUZZY] = {0};
+		// TkTsController takagi (
+		// 	{
+		// 		Tria_memf(-10.0, 0.0, 100.0, -1),
+		// 		Tria_memf(0.0, 100.0, 200.0),
+		// 		Tria_memf(100.0, 200.0, 300.0),
+		// 		Tria_memf(200.0, 300.0, 400.0),
+		// 		Tria_memf(300.0, 400.0, 410.0, 1)
+		// 	},
+		// 	pids
+		// );
+		// float mu[N_FUZZY] = {0};
 
 		const Fuzzyficator errorFuzz {
 			Tria_memf(-210.0, -200.0, -100.0, -1),
 			Tria_memf(-200.0, -100.0,    0.0),
 			Tria_memf(-100.0,    0.0,  100.0),
 			Tria_memf(   0.0,  100.0,  200.0),
-			Tria_memf( 100.0,  200.0,  210.0, 1)
+			Tria_memf( 100.0,  200.0,  210.0,  1)
 		};
 		const Fuzzyficator errorDerivativeFuzz {
-			Tria_memf(-110.0, -100.0,  -50.0, -1),
-			Tria_memf(-100.0,  -50.0,    0.0),
-			Tria_memf( -50.0,    0.0,   50.0),
-			Tria_memf(   0.0,   50.0,  100.0),
-			Tria_memf(  50.0,  100.0,  110.0, 1)
+			Tria_memf(-310.0, -300.0, -150.0, -1),
+			Tria_memf(-300.0, -150.0,    0.0),
+			Tria_memf(-150.0,    0.0,  150.0),
+			Tria_memf(   0.0,  150.0,  300.0),
+			Tria_memf( 150.0,  300.0,  310.0, 1)
 		};
 		const vMatrix_t<float> FAM = {
-			{  CORR_GRANDE, CORR_MODERADA, CORR_POCA, CORR_POCA, CORR_ZERO},
-			{CORR_MODERADA,     CORR_POCA, CORR_POCA, CORR_ZERO, CORR_ZERO},
-			{CORR_MODERADA,     CORR_POCA, CORR_ZERO, CORR_ZERO, CORR_ZERO},
-			{    CORR_POCA,     CORR_ZERO, CORR_ZERO, CORR_ZERO, CORR_ZERO},
-			{    CORR_ZERO,     CORR_ZERO, CORR_ZERO, CORR_ZERO, CORR_ZERO}
+			{     CORR_ZERO,     CORR_ZERO,     CORR_ZERO,     CORR_ZERO,     CORR_POCA},
+			{     CORR_ZERO,     CORR_ZERO,     CORR_ZERO,     CORR_POCA, CORR_MODERADA},
+			{     CORR_ZERO,     CORR_ZERO,     CORR_POCA, CORR_MODERADA,   CORR_GRANDE},
+			{     CORR_ZERO,     CORR_POCA, CORR_MODERADA,   CORR_GRANDE,   CORR_GRANDE},
+			{     CORR_POCA, CORR_MODERADA,   CORR_GRANDE,   CORR_GRANDE,   CORR_GRANDE}
 		};
 		MamdaniController mamdani(SAMPLE_TIME_s, errorFuzz, errorDerivativeFuzz, FAM);
+		Derivator derror(SAMPLE_TIME_s);
 
 		float prev_motor_speeds[N_PREV_SPEEDS] = {0};
 		int   motor_idx = 0;
@@ -137,6 +138,8 @@ public:
 		float bezier_speed_ref = 0.0f;
 		float prev_refer_speed = 0.0f;
 
+		TickType_t x_last_time_awake = xTaskGetTickCount();
+
 		while (true) {
 			(void)xQueueReceive(motor_speed_q, &motor_speed, QUEUE_TIMEOUT);
 			(void)xQueueReceive(refer_speed_q, &refer_speed, QUEUE_TIMEOUT);
@@ -147,21 +150,22 @@ public:
 				std::accumulate(prev_motor_speeds, prev_motor_speeds+N_PREV_SPEEDS, 0.0f)
 				/N_PREV_SPEEDS;
 
-			if (std::abs(refer_speed - prev_refer_speed) > rpm2rad_s(MAX_REFER_CHANGE)) {
-				float P0 = prev_refer_speed;
-				float P1 = prev_refer_speed + BEZIER_SMOOTHNESS;
-				float P2 = refer_speed      - BEZIER_SMOOTHNESS;
-				float P3 = refer_speed;
+			// if (std::abs(refer_speed - prev_refer_speed) > rpm2rad_s(MAX_REFER_CHANGE)) {
+			// 	float P0 = prev_refer_speed;
+			// 	float P1 = prev_refer_speed + BEZIER_SMOOTHNESS;
+			// 	float P2 = refer_speed      - BEZIER_SMOOTHNESS;
+			// 	float P3 = refer_speed;
 
-				bezier_speed_ref = bezierCurve(bezier_t, P0, P1, P2, P3);
-				bezier_t += TRANSITION_STEP;
-				if (bezier_t > TRANSITION_DURATION)
-					prev_refer_speed = bezier_speed_ref;
-			}
-			else {
-				bezier_t = 0.0f;
-				bezier_speed_ref = refer_speed;
-			}
+			// 	bezier_speed_ref = bezierCurve(bezier_t, P0, P1, P2, P3);
+			// 	bezier_t += TRANSITION_STEP;
+			// 	if (bezier_t > TRANSITION_DURATION)
+			// 		prev_refer_speed = bezier_speed_ref;
+			// }
+			// else {
+			// 	bezier_t = 0.0f;
+			// 	bezier_speed_ref = refer_speed;
+			// }
+			bezier_speed_ref = refer_speed;
 
 			float err = bezier_speed_ref - motor_speed;
 			// float u   = pid(err);
@@ -177,17 +181,22 @@ public:
 
 			pwm_set_duty(pwm_channel, pwm_out);
 
-			char buffer[29+N_FUZZY*4+23+1] = {0};
+			constexpr int BUFF_SIZE = 29+10+24+1;//29+N_FUZZY*4+23+1;
+			char buffer[BUFF_SIZE] = {0};
 			int  offset = 0;
-			offset  = sprintf(buffer       ,"\rR:%6.2f ", rad_s2rpm(refer_speed));
-			offset += sprintf(buffer+offset,  "M:%6.2f ", rad_s2rpm(motor_speed));
-			offset += sprintf(buffer+offset,  "e:%6.2f [", err);
-			for (int i=0; i<N_FUZZY; i++)
-				offset += sprintf(buffer+offset, "%3.1f ", mu[i]);
-			offset += sprintf(buffer+offset,  "] => u:%9.2e o: %3d", u, pwm_out);
+			// offset  = sprintf(buffer       ,"\rR:%6.2f ", rad_s2rpm(refer_speed));
+			// offset += sprintf(buffer+offset,  "M:%6.2f ", rad_s2rpm(motor_speed));
+			// offset += sprintf(buffer+offset,  "e:%6.2f [", err);
+			// for (int i=0; i<N_FUZZY; i++)
+			// 	offset += sprintf(buffer+offset, "%3.1f ", mu[i]);
+			// offset += sprintf(buffer+offset,  "] => u:%9.2e o: %3d", u, pwm_out);
+			offset += sprintf(buffer+offset,
+				"\rR:%6.2f e:%7.2fde:%7.2f => u%5.2f o:%4d",
+				rad_s2rpm(refer_speed), rad_s2rpm(err), rad_s2rpm(derror(err)), u, pwm_out
+			);
 			(void)printf("%s", buffer);
 
-			vTaskDelay(80 / portTICK_PERIOD_MS);
+			vTaskDelayUntil(&x_last_time_awake,SAMPLE_PERIOD_ms / portTICK_PERIOD_MS);
 		}
 	}
 };

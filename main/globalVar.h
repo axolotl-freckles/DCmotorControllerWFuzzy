@@ -4,6 +4,7 @@
 #include <math.h>
 
 constexpr int64_t SAMPLE_PERIOD_us = 100000;
+constexpr int64_t SAMPLE_PERIOD_ms = 100;
 constexpr float   SAMPLE_TIME_s    = (SAMPLE_PERIOD_us*1e-6);
 
 inline float rad_s2rpm(const float val) {return val*(60/(2*M_PI));}

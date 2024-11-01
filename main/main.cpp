@@ -42,7 +42,7 @@ void IRAM_ATTR send_status(void* argp) {
 	timer_args *args = (timer_args*)argp;
 	adc_oneshot_unit_handle_t adc_handle = args->adc_handle;
 	const float REF_MIN = 50.f*(2*M_PI/60), REF_MAX = 400.0f*(2*M_PI/60);
-	const int N_ENCODER_SLITS = 20;
+	// const int N_ENCODER_SLITS = 20;
 
 	int adc_read = 0;
 	(void)adc_oneshot_read(adc_handle, ADC_CHANNEL_0, &adc_read);
@@ -57,7 +57,7 @@ void IRAM_ATTR send_status(void* argp) {
 	static int32_t motor_count = 0;
 	int32_t prev_count = motor_count;
 	xQueueReceiveFromISR(motor_count_q, &motor_count, &xHigherPriorityTaskWoken);
-	motor_speed = (float)(motor_count-prev_count)*2.0f*M_PI / (N_ENCODER_SLITS*SAMPLE_TIME_s);
+	motor_speed = (float)(motor_count-prev_count)*2.0f*M_PI / (ENCODER_SLITS*SAMPLE_TIME_s);
 
 	xQueueSendFromISR(refer_speed_q, &refer_speed, &xHigherPriorityTaskWoken);
 	xQueueSendFromISR(motor_speed_q, &motor_speed, &xHigherPriorityTaskWoken);

@@ -60,10 +60,11 @@ private:
 	static constexpr float MAX_REFER_CHANGE  = 50.0f;
 	static constexpr float BEZIER_SMOOTHNESS =  0.1f;
 
-	static constexpr float CORR_ZERO     = 0.1;
-	static constexpr float CORR_POCA     = 0.3;
-	static constexpr float CORR_MODERADA = 0.6;
-	static constexpr float CORR_GRANDE   = 0.95;
+	static constexpr float CRR_CERO     = 0.00;
+	static constexpr float CRR_PEQUE    = 0.25;
+	static constexpr float CRR_MEDIA    = 0.50;
+	static constexpr float CRR_MODERADA = 0.75;
+	static constexpr float CRR_GRANDE   = 1.00;
 
 public:
 	ControllerTask(
@@ -122,11 +123,11 @@ public:
 			Tria_memf( 510.0,  1020.0, 1030.0, 1)
 		};
 		const vMatrix_t<float> FAM = {
-			{     CORR_ZERO,     CORR_ZERO,     CORR_ZERO,     CORR_POCA,     CORR_POCA},
-			{     CORR_ZERO,     CORR_ZERO,     CORR_ZERO,     CORR_POCA, CORR_MODERADA},
-			{     CORR_ZERO,     CORR_ZERO,     CORR_POCA, CORR_MODERADA, CORR_MODERADA},
-			{     CORR_ZERO,     CORR_POCA, CORR_MODERADA, CORR_MODERADA,   CORR_GRANDE},
-			{     CORR_POCA, CORR_MODERADA, CORR_MODERADA,   CORR_GRANDE,   CORR_GRANDE}
+			{     CRR_CERO,     CRR_CERO,     CRR_CERO,    CRR_PEQUE,    CRR_PEQUE},
+			{     CRR_CERO,     CRR_CERO,    CRR_PEQUE,    CRR_PEQUE,    CRR_MEDIA},
+			{     CRR_CERO,    CRR_PEQUE,    CRR_PEQUE,    CRR_MEDIA, CRR_MODERADA},
+			{    CRR_PEQUE,    CRR_PEQUE,    CRR_MEDIA, CRR_MODERADA,   CRR_GRANDE},
+			{    CRR_PEQUE,    CRR_MEDIA, CRR_MODERADA,   CRR_GRANDE,   CRR_GRANDE}
 		};
 		MamdaniController mamdani(SAMPLE_TIME_s, errorFuzz, errorDerivativeFuzz, FAM);
 		Derivator derror(SAMPLE_TIME_s);

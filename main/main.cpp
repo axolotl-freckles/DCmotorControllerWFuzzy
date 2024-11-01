@@ -82,7 +82,7 @@ void app_main(void)
 
 	if (
 		innit_pwm (
-			13, LEDC_CHANNEL_0, LEDC_TIMER_1,
+			14, LEDC_CHANNEL_0, LEDC_TIMER_1,
 			20000, (ledc_timer_bit_t)PWM_RESOLUTION,
 			0x0F, 0
 		).esp_err

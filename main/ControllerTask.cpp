@@ -61,7 +61,7 @@ private:
 	static constexpr float BEZIER_SMOOTHNESS =  0.1f;
 
 	static constexpr float CORR_ZERO     = 0.1;
-	static constexpr float CORR_POCA     = 0.2;
+	static constexpr float CORR_POCA     = 0.3;
 	static constexpr float CORR_MODERADA = 0.6;
 	static constexpr float CORR_GRANDE   = 0.95;
 
@@ -115,24 +115,21 @@ public:
 			Tria_memf( 100.0,  200.0,  210.0,  1)
 		};
 		const Fuzzyficator errorDerivativeFuzz {
-			Tria_memf(-310.0, -300.0, -150.0, -1),
-			Tria_memf(-300.0, -150.0,    0.0),
-			Tria_memf(-150.0,    0.0,  150.0),
-			Tria_memf(   0.0,  150.0,  300.0),
-			Tria_memf( 150.0,  300.0,  310.0, 1)
+			Tria_memf(-1030.0, -1020.0, -150.0, -1),
+			Tria_memf(-1020.0, -510.0,    0.0),
+			Tria_memf(-510.0,    0.0,  510.0),
+			Tria_memf(   0.0,  510.0,  1020.0),
+			Tria_memf( 510.0,  1020.0, 1030.0, 1)
 		};
 		const vMatrix_t<float> FAM = {
-			{     CORR_ZERO,     CORR_ZERO,     CORR_ZERO,     CORR_ZERO,     CORR_POCA},
+			{     CORR_ZERO,     CORR_ZERO,     CORR_ZERO,     CORR_POCA,     CORR_POCA},
 			{     CORR_ZERO,     CORR_ZERO,     CORR_ZERO,     CORR_POCA, CORR_MODERADA},
-			{     CORR_ZERO,     CORR_ZERO,     CORR_POCA, CORR_MODERADA,   CORR_GRANDE},
-			{     CORR_ZERO,     CORR_POCA, CORR_MODERADA,   CORR_GRANDE,   CORR_GRANDE},
-			{     CORR_POCA, CORR_MODERADA,   CORR_GRANDE,   CORR_GRANDE,   CORR_GRANDE}
+			{     CORR_ZERO,     CORR_ZERO,     CORR_POCA, CORR_MODERADA, CORR_MODERADA},
+			{     CORR_ZERO,     CORR_POCA, CORR_MODERADA, CORR_MODERADA,   CORR_GRANDE},
+			{     CORR_POCA, CORR_MODERADA, CORR_MODERADA,   CORR_GRANDE,   CORR_GRANDE}
 		};
 		MamdaniController mamdani(SAMPLE_TIME_s, errorFuzz, errorDerivativeFuzz, FAM);
 		Derivator derror(SAMPLE_TIME_s);
-
-		float prev_motor_speeds[N_PREV_SPEEDS] = {0};
-		int   motor_idx = 0;
 
 		float motor_speed = 0.0f;
 		float refer_speed = 0.0f;
@@ -150,12 +147,6 @@ public:
 			(void)xQueueReceive(refer_speed_q, &refer_speed, QUEUE_TIMEOUT);
 
 			task_st = std::chrono::high_resolution_clock::now();
-
-			prev_motor_speeds[motor_idx] = motor_speed;
-			motor_idx = (motor_idx+1)%N_PREV_SPEEDS;
-			motor_speed = 
-				std::accumulate(prev_motor_speeds, prev_motor_speeds+N_PREV_SPEEDS, 0.0f)
-				/N_PREV_SPEEDS;
 
 			// if (std::abs(refer_speed - prev_refer_speed) > rpm2rad_s(MAX_REFER_CHANGE)) {
 			// 	float P0 = prev_refer_speed;

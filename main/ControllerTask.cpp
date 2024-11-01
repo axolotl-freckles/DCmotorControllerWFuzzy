@@ -197,7 +197,7 @@ public:
 			);
 			(void)printf("%s", buffer);
 
-			vTaskDelayUntil(&x_last_time_awake,SAMPLE_PERIOD_ms / portTICK_PERIOD_MS);
+			vTaskDelayUntil(&x_last_time_awake,SAMPLE_TIME_ms / portTICK_PERIOD_MS);
 		}
 	}
 };

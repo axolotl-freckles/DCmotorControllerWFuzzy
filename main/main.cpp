@@ -124,7 +124,7 @@ void app_main(void)
 	};
 	esp_timer_handle_t timer_handle;
 	esp_timer_create(&timer_config, &timer_handle);
-	esp_timer_start_periodic(timer_handle, SAMPLE_PERIOD_us);
+	esp_timer_start_periodic(timer_handle, SAMPLE_TIME_us);
 
 	ControllerTask controllerTask(
 		"Controller Task", 2500,

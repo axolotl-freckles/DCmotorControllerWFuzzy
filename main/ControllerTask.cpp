@@ -51,6 +51,12 @@ private:
 	const QueueHandle_t motor_speed_q;
 	const ledc_channel_t pwm_channel;
 
+	const QueueHandle_t _tel_ref_speed_q;
+	const QueueHandle_t _tel_motor_speed_q;
+	const QueueHandle_t _tel_error_q;
+	const QueueHandle_t _tel_error_der_q;
+	const QueueHandle_t _tel_control_signal_q;
+
 	static const TickType_t QUEUE_TIMEOUT = 10;
 
 	// taskFunction constants:
@@ -72,11 +78,21 @@ public:
 		uint32_t    stack_size,
 		QueueHandle_t _refer_speed_q,
 		QueueHandle_t _motor_speed_q,
-		ledc_channel_t _pwm_channel
+		ledc_channel_t _pwm_channel,
+		QueueHandle_t tel_ref_speed_q,
+		QueueHandle_t tel_motor_speed_q,
+		QueueHandle_t tel_error_q,
+		QueueHandle_t tel_error_der_q,
+		QueueHandle_t tel_control_signal_q
 	)
 	: Task(name, stack_size, 2),
 		refer_speed_q(_refer_speed_q), motor_speed_q(_motor_speed_q),
-		pwm_channel(_pwm_channel)
+		pwm_channel(_pwm_channel),
+		_tel_ref_speed_q(tel_ref_speed_q),
+		_tel_motor_speed_q(tel_motor_speed_q),
+		_tel_error_q(tel_error_q),
+		_tel_error_der_q(tel_error_der_q),
+		_tel_control_signal_q(tel_control_signal_q)
 	{}
 
 	void taskFunction() {
@@ -183,6 +199,13 @@ public:
 			task_en = std::chrono::high_resolution_clock::now();
 			microseconds task_duration_us = duration_cast<microseconds>(task_en-task_st);
 
+			float error_derivative = derror(err);
+			(void)xQueueOverwrite(_tel_ref_speed_q,   &bezier_speed_ref);
+			(void)xQueueOverwrite(_tel_motor_speed_q, &motor_speed);
+			(void)xQueueOverwrite(_tel_error_q,       &err);
+			(void)xQueueOverwrite(_tel_error_der_q,   &error_derivative);
+			(void)xQueueOverwrite(_tel_control_signal_q, &u);
+
 			constexpr int BUFF_SIZE = 12+29+10+24+1;//29+N_FUZZY*4+23+1;
 			char buffer[BUFF_SIZE] = {0};
 			int  offset = 0;
@@ -194,7 +217,7 @@ public:
 			// offset += sprintf(buffer+offset,  "] => u:%9.2e o: %3d", u, pwm_out);
 			offset += sprintf(buffer+offset,
 				"\r[%7.1eus] R:%6.2f e:%7.2fde:%7.2f => u%5.2f o:%3d",
-				(float)task_duration_us.count(), rad_s2rpm(refer_speed), rad_s2rpm(err), rad_s2rpm(derror(err)), u, pwm_out
+				(float)task_duration_us.count(), rad_s2rpm(refer_speed), rad_s2rpm(err), rad_s2rpm(error_derivative), u, pwm_out
 			);
 			(void)printf("%s", buffer);
 

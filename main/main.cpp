@@ -19,6 +19,7 @@
 #include "TakagiTsugenoController.cpp"
 #include "DCmotor_ControlLaw.cpp"
 #include "ControllerTask.cpp"
+#include "Telemetry.cpp"
 
 extern "C" {
 
@@ -29,9 +30,15 @@ esp_err_t set_adc(
 	adc_channel_t  adc_channel
 );
 
-QueueHandle_t refer_speed_q = xQueueCreate(2, sizeof(float));
-QueueHandle_t motor_speed_q = xQueueCreate(2, sizeof(float));
-QueueHandle_t motor_count_q = xQueueCreate(2, sizeof(int));
+QueueHandle_t refer_speed_q = xQueueCreate(1, sizeof(float));
+QueueHandle_t motor_speed_q = xQueueCreate(1, sizeof(float));
+QueueHandle_t motor_count_q = xQueueCreate(1, sizeof(int));
+
+QueueHandle_t tel_ref_speed_q   = xQueueCreate(1, sizeof(float));
+QueueHandle_t tel_motor_speed_q = xQueueCreate(1, sizeof(float));
+QueueHandle_t tel_error_q       = xQueueCreate(1, sizeof(float));
+QueueHandle_t tel_error_der_q   = xQueueCreate(1, sizeof(float));
+QueueHandle_t tel_control_signal_q = xQueueCreate(1, sizeof(float));
 
 typedef struct {
 	adc_oneshot_unit_handle_t adc_handle;
@@ -59,8 +66,8 @@ void IRAM_ATTR send_status(void* argp) {
 	xQueueReceiveFromISR(motor_count_q, &motor_count, &xHigherPriorityTaskWoken);
 	motor_speed = (float)(motor_count-prev_count)*2.0f*M_PI / (ENCODER_SLITS*SAMPLE_TIME_s);
 
-	xQueueSendFromISR(refer_speed_q, &refer_speed, &xHigherPriorityTaskWoken);
-	xQueueSendFromISR(motor_speed_q, &motor_speed, &xHigherPriorityTaskWoken);
+	xQueueOverwriteFromISR(refer_speed_q, &refer_speed, &xHigherPriorityTaskWoken);
+	xQueueOverwriteFromISR(motor_speed_q, &motor_speed, &xHigherPriorityTaskWoken);
 
 	if (xHigherPriorityTaskWoken) {
 		portYIELD_FROM_ISR();
@@ -71,7 +78,7 @@ void count_encoder(void* args) {
 	BaseType_t higherTaskWoken = pdFALSE;
 	static int32_t motor_count = 0;
 	motor_count ++;
-	xQueueSendFromISR(motor_count_q, &motor_count, &higherTaskWoken);
+	xQueueOverwriteFromISR(motor_count_q, &motor_count, &higherTaskWoken);
 }
 
 void app_main(void)
@@ -130,12 +137,26 @@ void app_main(void)
 		"Controller Task", 2500,
 		refer_speed_q,
 		motor_speed_q,
-		LEDC_CHANNEL_0
+		LEDC_CHANNEL_0,
+		tel_ref_speed_q,
+		tel_motor_speed_q,
+		tel_error_q,
+		tel_error_der_q,
+		tel_control_signal_q
+	);
+	Telemetry telemetryTask(
+		"Telemetry Task", 2048,
+		UART_NUM_2, TELEMETRY_TX_PIN,
+		tel_ref_speed_q,
+		tel_error_q,
+		tel_error_der_q,
+		tel_control_signal_q
 	);
 
 	(void)printf("\n\n");
 
 	controllerTask.start();
+	telemetryTask.start();
 	while (true) {
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}

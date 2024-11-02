@@ -26,7 +26,7 @@
 
 class Telemetry : public Task {
 public:
-	static constexpr int BUFFSIZE = 40;
+	static constexpr int BUFFSIZE = 50;
 	static const TickType_t QUEUE_TIMEOUT = SAMPLE_TIME_ms / portTICK_PERIOD_MS;
 
 	void taskFunction() {
@@ -40,10 +40,10 @@ public:
 
 			// const char asdf[] = "0.00e+00";
 			(void)sprintf(
-				buffer, "%9.2e,%9.2e,%9.2e,%9.2e\n",
+				buffer, "%10.2e,%10.2e,%10.2e,%10.2e\n",
 				refer, error, error_derivative, control_signal
 			);
-			uart_write_bytes(_uart_num, buffer, BUFFSIZE);
+			uart_write_bytes(_uart_num, buffer, std::strlen(buffer));
 			xTaskDelayUntil(&previousWakeTime, SAMPLE_TIME_ms / portTICK_PERIOD_MS);
 		}
 	}
@@ -69,7 +69,9 @@ public:
 			.data_bits = UART_DATA_8_BITS,
 			.parity    = UART_PARITY_DISABLE,
 			.stop_bits = UART_STOP_BITS_1,
-			.flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS
+			.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+			.rx_flow_ctrl_thresh = 122,
+			.flags = {.backup_before_sleep = 0}
 		};
 
 		ESP_ERROR_CHECK(
@@ -79,7 +81,7 @@ public:
 			uart_set_pin(_uart_num, tx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE)
 		);
 		ESP_ERROR_CHECK(
-			uart_driver_install(uart_num, 1, BUFFSIZE, 0, NULL, 0)
+			uart_driver_install(uart_num, UART_HW_FIFO_LEN(_uart_num)+1, 0, 0, NULL, 0)
 		);
 	}
 

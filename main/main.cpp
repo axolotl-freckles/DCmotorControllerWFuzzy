@@ -12,13 +12,21 @@
 
 #include "globalVar.h"
 #include "pwm.h"
-
+#include "esp_dsp.h"
 #include "Fuzzyficator.hpp"
 #include "Fuzzyficator.cpp"
 #include "TakagiTsugenoController.hpp"
 #include "TakagiTsugenoController.cpp"
 #include "DCmotor_ControlLaw.cpp"
 #include "ControllerTask.cpp"
+#define SAMPLE_TIME_s 0.001  
+#define RC 0.1        
+#define FFT_SIZE 256
+static float adc_buffer[FFT_SIZE];
+static int adc_index = 0;
+static bool fft_ready = false;
+float alpha = SAMPLE_TIME_s / (SAMPLE_TIME_s + RC);
+static float time_domain_data[FFT_SIZE];
 #include "Telemetry.cpp"
 
 extern "C" {
@@ -44,6 +52,9 @@ typedef struct {
 	adc_oneshot_unit_handle_t adc_handle;
 	// volatile uint32_t *motor_counter;
 } timer_args;
+void init_fft() {
+    dsps_fft2r_init_fc32(NULL, CONFIG_DSP_MAX_FFT_SIZE);
+}
 
 void IRAM_ATTR send_status(void* argp) {
 	timer_args *args = (timer_args*)argp;
@@ -53,6 +64,18 @@ void IRAM_ATTR send_status(void* argp) {
 
 	int adc_read = 0;
 	(void)adc_oneshot_read(adc_handle, ADC_CHANNEL_0, &adc_read);
+
+	//lowpass filter
+	static float prev_adc_value = 0.0;
+    float adc_value = (float)adc_read * (REF_MAX - REF_MIN) / (float)(0b111111111) + REF_MIN;
+    adc_value = alpha * adc_value + (1 - alpha) * prev_adc_value;
+    prev_adc_value = adc_value;
+
+	adc_buffer[adc_index++] = adc_value;
+    if (adc_index >= FFT_SIZE) {
+        adc_index = 0;
+        fft_ready = true;  // Signal that FFT processing can start
+    }
 
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 	float adc_value = (float)adc_read*(REF_MAX-REF_MIN)/(float)(0b111111111) + REF_MIN;
@@ -80,7 +103,41 @@ void count_encoder(void* args) {
 	motor_count ++;
 	xQueueOverwriteFromISR(motor_count_q, &motor_count, &higherTaskWoken);
 }
+void FFtToIFFT(void *param) {
+    float fft_data[FFT_SIZE * 2];  // Buffer for complex FFT input (real and imaginary)
+    
+    while (true) {
+        if (fft_ready) {
+            fft_ready = false;
 
+            //Buffer
+            for (int i = 0; i < FFT_SIZE; i++) {
+                fft_data[i * 2] = adc_buffer[i]; 
+                fft_data[i * 2 + 1] = 0.0;        
+            }
+
+            //FFT
+            dsps_fft2r_fc32(fft_data, FFT_SIZE);
+            dsps_bit_rev_fc32(fft_data, FFT_SIZE);
+            dsps_cplx2reC_fc32(fft_data, FFT_SIZE);
+
+            //IFFT
+            dsps_ifft2r_fc32(fft_data, FFT_SIZE);
+            dsps_bit_rev_fc32(fft_data, FFT_SIZE);
+            dsps_cplx2reC_fc32(fft_data, FFT_SIZE);
+
+           //Normalization 
+            for (int i = 0; i < FFT_SIZE; i++) {
+                time_domain_data[i] = fft_data[i * 2] / FFT_SIZE;  // Only real part, normalized
+            }
+
+            //
+			//xQueueSend(reconstructed_data_q, time_domain_data, portMAX_DELAY);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));  //Cambiar delay
+    }
+}
 void app_main(void)
 {
 	adc_oneshot_unit_handle_t adc0_handle;
@@ -97,6 +154,12 @@ void app_main(void)
 	{
 		return;
 	}
+
+	// init_fft();
+    // reconstructed_data_q = xQueueCreate(10, sizeof(time_domain_data));
+    
+    // Start FFT processing task
+    xTaskCreatePinnedToCore(FFTToIFFT, "FFT_Task", 4096, NULL, 5, NULL, 0);
 
 	printf("Configurando Interrupcion GPIO\n");
 	if (gpio_install_isr_service(0))

@@ -19,6 +19,7 @@
 #include "TakagiTsugenoController.cpp"
 #include "DCmotor_ControlLaw.cpp"
 #include "ControllerTask.cpp"
+#include "Telemetry.cpp"
 #define SAMPLE_TIME_s 0.001  
 #define RC 0.1        
 #define FFT_SIZE 256
@@ -27,7 +28,7 @@ static int adc_index = 0;
 static bool fft_ready = false;
 float alpha = SAMPLE_TIME_s / (SAMPLE_TIME_s + RC);
 static float time_domain_data[FFT_SIZE];
-#include "Telemetry.cpp"
+
 
 extern "C" {
 

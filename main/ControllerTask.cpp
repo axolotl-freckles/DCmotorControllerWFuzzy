@@ -72,6 +72,9 @@ private:
 	static constexpr float CRR_MODERADA = 0.75;
 	static constexpr float CRR_GRANDE   = 1.00;
 
+	static constexpr float U_RC = 0.80;
+	static constexpr float U_ALPHA = SAMPLE_TIME_s / (SAMPLE_TIME_s + U_RC);
+
 public:
 	ControllerTask(
 		const char *name,
@@ -185,7 +188,10 @@ public:
 			float err = bezier_speed_ref - motor_speed;
 			// float u   = pid(err);
 			// float u = takagi(rad_s2rpm(motor_speed), err);
+			static float prev_u = 0.0f;
 			float u = mamdani(rad_s2rpm(err));
+			u = u*U_ALPHA + (1-U_ALPHA)*prev_u;
+			prev_u = u;
 			// takagi.fuzzyficator()(rad_s2rpm(motor_speed), mu);
 
 			constexpr float U_MIN = 0.0f, U_MAX = 1.0f;

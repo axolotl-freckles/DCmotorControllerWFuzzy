@@ -132,8 +132,8 @@ void FFtToIFFT(void *param) {
                 time_domain_data[i] = fft_data[i * 2] / FFT_SIZE;  // Only real part, normalized
             }
 
-            //
-			//xQueueSend(reconstructed_data_q, time_domain_data, portMAX_DELAY);
+            
+			xQueueSend(reconstructed_data_q, time_domain_data, portMAX_DELAY);
         }
 
         vTaskDelay(pdMS_TO_TICKS(10));  //Cambiar delay
@@ -156,8 +156,8 @@ void app_main(void)
 		return;
 	}
 
-	// init_fft();
-    // reconstructed_data_q = xQueueCreate(10, sizeof(time_domain_data));
+	init_fft();
+    reconstructed_data_q = xQueueCreate(10, sizeof(time_domain_data));
     
     // Start FFT processing task
     xTaskCreatePinnedToCore(FFTToIFFT, "FFT_Task", 4096, NULL, 5, NULL, 0);

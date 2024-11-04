@@ -79,7 +79,7 @@ void IRAM_ATTR send_status(void* argp) {
     }
 
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-	float adc_value = (float)adc_read*(REF_MAX-REF_MIN)/(float)(0b111111111) + REF_MIN;
+	// float adc_value = (float)adc_read*(REF_MAX-REF_MIN)/(float)(0b111111111) + REF_MIN;
 
 	float refer_speed = adc_value;
 	float motor_speed = 0.0;
@@ -212,6 +212,7 @@ void app_main(void)
 		"Telemetry Task", 2048,
 		UART_NUM_2, TELEMETRY_TX_PIN,
 		tel_ref_speed_q,
+		tel_motor_speed_q,
 		tel_error_q,
 		tel_error_der_q,
 		tel_control_signal_q

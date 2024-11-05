@@ -6,7 +6,7 @@
 #include <math.h>
 
 Fuzzyficator::Fuzzyficator()
-: mem_funcs({[] (float value) -> float {return 1.0;}})
+: mem_funcs({Fuzzyficator::ANY_memf})
 {}
 Fuzzyficator::Fuzzyficator(std::initializer_list<Mem_func> _membership_functions)
 : mem_funcs(_membership_functions)

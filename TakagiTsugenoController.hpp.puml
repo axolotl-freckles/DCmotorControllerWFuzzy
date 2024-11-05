@@ -1,0 +1,21 @@
+@startuml TakagiTsugeno
+
+!include Fuzzyficator.hpp.puml
+!include pid.hpp.puml
+
+class TkTsController {
+	+TkTsController()
+	+TkTsController(initializer_list<Mem_func> fuzzyficator, initializer_list<PIDController> PIDs)
+	+TkTsController(Fuzzyficator, initializer_list<PIDController> PIDs)
+	+TkTsController(Fuzzyficator, vector<PIDController> PIDs)
+	+TkTsController(initializer_list<Mem_func> fuzzyficator, vector<PIDController> PIDs)
+	+const iterator begin()
+	+const iterator end()
+	+const Fuzzyficator fuzzyficator()
+	+float operator() (float fuzzyficable_val, float input)
+
+	-Fuzzyficator fuzzyficator
+	-vector<PIDController> control_laws
+}
+
+@enduml

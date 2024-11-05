@@ -27,6 +27,7 @@ using Mem_func = std::function<float(const float)>;
 
 class Fuzzyficator {
 public:
+	static inline float ANY_memf(const float value) { return 1.0; }
 /**
  * @brief Construct a new Fuzzyficator object
  * 

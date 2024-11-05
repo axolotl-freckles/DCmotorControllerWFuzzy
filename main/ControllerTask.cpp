@@ -60,18 +60,13 @@ private:
 	static const TickType_t QUEUE_TIMEOUT = 10;
 
 	// taskFunction constants:
-	static constexpr int   N_PREV_SPEEDS = 6;
-	static constexpr float TRANSITION_DURATION = 2.0f;
-	static constexpr float TRANSITION_STEP     = SAMPLE_TIME_s / TRANSITION_DURATION;
-	static constexpr float MAX_REFER_CHANGE  = 50.0f;
-	static constexpr float BEZIER_SMOOTHNESS =  0.1f;
-
 	static constexpr float CRR_CERO     = 0.00;
 	static constexpr float CRR_PEQUE    = 0.25;
 	static constexpr float CRR_MEDIA    = 0.50;
 	static constexpr float CRR_MODERADA = 0.75;
 	static constexpr float CRR_GRANDE   = 1.00;
 
+	static constexpr float K_I = 0.02;
 	static constexpr float U_RC = 0.80;
 	static constexpr float U_ALPHA = SAMPLE_TIME_s / (SAMPLE_TIME_s + U_RC);
 
@@ -99,34 +94,6 @@ public:
 	{}
 
 	void taskFunction() {
-		// PIDController pid(
-		// 	SAMPLE_TIME_s,
-		// 	0.02f, 0.005f, 0.0003f
-		// );
-		// pid.addAntiWindup(0.0, 1.0);
-		// const int N_FUZZY = 5;
-		// std::vector<PIDController> pids = {
-		// 	PIDController(SAMPLE_TIME_s, 10.6534, 8.7664, 0.0),
-		// 	PIDController(SAMPLE_TIME_s, 10.3998, 8.9971, 0.0),
-		// 	PIDController(SAMPLE_TIME_s, 10.1461, 9.2278, 0.0),
-		// 	PIDController(SAMPLE_TIME_s,  9.8924, 9.4585, 0.0),
-		// 	PIDController(SAMPLE_TIME_s,  9.6388, 9.6892, 0.0)
-		// };
-		// for (PIDController &pid : pids)
-		// 	pid.addAntiWindup(0.0, 30.0);
-
-		// TkTsController takagi (
-		// 	{
-		// 		Tria_memf(-10.0, 0.0, 100.0, -1),
-		// 		Tria_memf(0.0, 100.0, 200.0),
-		// 		Tria_memf(100.0, 200.0, 300.0),
-		// 		Tria_memf(200.0, 300.0, 400.0),
-		// 		Tria_memf(300.0, 400.0, 410.0, 1)
-		// 	},
-		// 	pids
-		// );
-		// float mu[N_FUZZY] = {0};
-
 		const Fuzzyficator errorFuzz {
 			Tria_memf(-210.0, -200.0, -100.0, -1),
 			Tria_memf(-200.0, -100.0,    0.0),
@@ -150,13 +117,10 @@ public:
 		};
 		MamdaniController mamdani(SAMPLE_TIME_s, errorFuzz, errorDerivativeFuzz, FAM);
 		Derivator derror(SAMPLE_TIME_s);
+		Integrator ierror(SAMPLE_TIME_s);
 
 		float motor_speed = 0.0f;
 		float refer_speed = 0.0f;
-
-		float bezier_t = 0.0f;
-		float bezier_speed_ref = 0.0f;
-		float prev_refer_speed = 0.0f;
 
 		TickType_t x_last_time_awake = xTaskGetTickCount();
 		high_resolution_clock::time_point task_st;
@@ -168,35 +132,23 @@ public:
 
 			task_st = std::chrono::high_resolution_clock::now();
 
-			// if (std::abs(refer_speed - prev_refer_speed) > rpm2rad_s(MAX_REFER_CHANGE)) {
-			// 	float P0 = prev_refer_speed;
-			// 	float P1 = prev_refer_speed + BEZIER_SMOOTHNESS;
-			// 	float P2 = refer_speed      - BEZIER_SMOOTHNESS;
-			// 	float P3 = refer_speed;
-
-			// 	bezier_speed_ref = bezierCurve(bezier_t, P0, P1, P2, P3);
-			// 	bezier_t += TRANSITION_STEP;
-			// 	if (bezier_t > TRANSITION_DURATION)
-			// 		prev_refer_speed = bezier_speed_ref;
-			// }
-			// else {
-			// 	bezier_t = 0.0f;
-			// 	bezier_speed_ref = refer_speed;
-			// }
-			bezier_speed_ref = refer_speed;
-
-			float err = bezier_speed_ref - motor_speed;
-			// float u   = pid(err);
-			// float u = takagi(rad_s2rpm(motor_speed), err);
+			float err = refer_speed - motor_speed;
+			constexpr float OUT_MIN = 0.17f, OUT_MAX = 0.95f;
+			constexpr float U_MIN = 0.0f, U_MAX = 1.0f;
 			static float prev_u = 0.0f;
-			float u = mamdani(rad_s2rpm(err));
+			static float error_integral = 0.0f;
+			float u;
+
+			if (motor_speed < rpm2rad_s(50)) {
+				u = OUT_MIN;
+			}
+			else {
+				error_integral = (OUT_MIN < prev_u && prev_u < OUT_MAX) ? ierror(err) : error_integral;
+				u = mamdani(rad_s2rpm(err)) + K_I*error_integral;
+			}
 			u = u*U_ALPHA + (1-U_ALPHA)*prev_u;
 			prev_u = u;
-			// takagi.fuzzyficator()(rad_s2rpm(motor_speed), mu);
 
-			constexpr float U_MIN = 0.0f, U_MAX = 1.0f;
-			// u = std::clamp(u, U_MIN, U_MAX);
-			constexpr float OUT_MIN = 0.17f, OUT_MAX = 0.95f;
 			uint8_t pwm_out = (uint8_t)(std::clamp((u-U_MIN)/(U_MAX-U_MIN), OUT_MIN, OUT_MAX)*PWM_MAX);
 			pwm_out &= PWM_MAX;
 
@@ -206,21 +158,15 @@ public:
 			microseconds task_duration_us = duration_cast<microseconds>(task_en-task_st);
 
 			float error_derivative = derror(err);
-			(void)xQueueOverwrite(_tel_ref_speed_q,   &bezier_speed_ref);
+			(void)xQueueOverwrite(_tel_ref_speed_q,   &refer_speed);
 			(void)xQueueOverwrite(_tel_motor_speed_q, &motor_speed);
 			(void)xQueueOverwrite(_tel_error_q,       &err);
 			(void)xQueueOverwrite(_tel_error_der_q,   &error_derivative);
 			(void)xQueueOverwrite(_tel_control_signal_q, &u);
 
-			constexpr int BUFF_SIZE = 12+29+10+24+1;//29+N_FUZZY*4+23+1;
+			constexpr int BUFF_SIZE = 12+29+10+24+1;
 			char buffer[BUFF_SIZE] = {0};
 			int  offset = 0;
-			// offset  = sprintf(buffer       ,"\rR:%6.2f ", rad_s2rpm(refer_speed));
-			// offset += sprintf(buffer+offset,  "M:%6.2f ", rad_s2rpm(motor_speed));
-			// offset += sprintf(buffer+offset,  "e:%6.2f [", err);
-			// for (int i=0; i<N_FUZZY; i++)
-			// 	offset += sprintf(buffer+offset, "%3.1f ", mu[i]);
-			// offset += sprintf(buffer+offset,  "] => u:%9.2e o: %3d", u, pwm_out);
 			offset += sprintf(buffer+offset,
 				"\r[%7.1eus] R:%6.2f e:%7.2fde:%7.2f => u%5.2f o:%3d",
 				(float)task_duration_us.count(), rad_s2rpm(refer_speed), rad_s2rpm(err), rad_s2rpm(error_derivative), u, pwm_out

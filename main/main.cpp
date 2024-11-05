@@ -50,7 +50,6 @@ QueueHandle_t tel_control_signal_q = xQueueCreate(1, sizeof(float));
 
 typedef struct {
 	adc_oneshot_unit_handle_t adc_handle;
-	// volatile uint32_t *motor_counter;
 } timer_args;
 void init_fft() {
     dsps_fft2r_init_fc32(NULL, CONFIG_DSP_MAX_FFT_SIZE);
@@ -60,7 +59,6 @@ void IRAM_ATTR send_status(void* argp) {
 	timer_args *args = (timer_args*)argp;
 	adc_oneshot_unit_handle_t adc_handle = args->adc_handle;
 	const float REF_MIN = 50.f*(2*M_PI/60), REF_MAX = 400.0f*(2*M_PI/60);
-	// const int N_ENCODER_SLITS = 20;
 
 	int adc_read = 0;
 	(void)adc_oneshot_read(adc_handle, ADC_CHANNEL_0, &adc_read);
@@ -78,7 +76,6 @@ void IRAM_ATTR send_status(void* argp) {
 	static float prev_motor_speed = 0.0;
 	float motor_speed = 0.0;
 
-	// 80 ranuras encoder, 80 intr por revolución
 	static int32_t motor_count = 0;
 	int32_t prev_count = motor_count;
 	xQueueReceiveFromISR(motor_count_q, &motor_count, &xHigherPriorityTaskWoken);

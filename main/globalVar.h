@@ -15,6 +15,6 @@ constexpr int PWM_RESOLUTION = 8;
 constexpr int PWM_MAX        = (1<<PWM_RESOLUTION)-1;
 
 constexpr int ENCODER_GPIO = 26;
-constexpr int PWM_OUT_GPIO = 12;
+constexpr int PWM_OUT_GPIO = 14;
 
 constexpr int TELEMETRY_TX_PIN = 18;

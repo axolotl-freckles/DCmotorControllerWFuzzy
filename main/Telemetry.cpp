@@ -39,7 +39,6 @@ public:
 			(void)xQueueReceive(_errorDerivative_q, &error_derivative, QUEUE_TIMEOUT);
 			(void)xQueueReceive(  _controlSignal_q,   &control_signal, QUEUE_TIMEOUT);
 
-			// const char asdf[] = "0.00e+00";
 			(void)sprintf(
 				buffer, "%10.2e,%10.2e,%10.2e,%10.2e,%10.2e\n",
 				refer, motor_speed, error, error_derivative, control_signal

@@ -27,6 +27,7 @@
 #include "MamdaniController.hpp"
 #include "pid.hpp"
 #include "pid.cpp"
+#include "Filters.hpp"
 #include "k_values.h"
 #include "pwm.h"
 
@@ -94,6 +95,10 @@ public:
 	{}
 
 	void taskFunction() {
+		LowPass refFilter(0.85, SAMPLE_TIME_s);
+		LowPass motorFilter(0.85, SAMPLE_TIME_s);
+		LowPass uFilter(U_RC, SAMPLE_TIME_s);
+
 		const Fuzzyficator errorFuzz {
 			Tria_memf(-210.0, -200.0, -100.0, -1),
 			Tria_memf(-200.0, -100.0,    0.0),
@@ -102,7 +107,7 @@ public:
 			Tria_memf( 100.0,  200.0,  210.0,  1)
 		};
 		const Fuzzyficator errorDerivativeFuzz {
-			Tria_memf(-1030.0, -1020.0, -150.0, -1),
+			Tria_memf(-1030.0, -1020.0, -510.0, -1),
 			Tria_memf(-1020.0, -510.0,    0.0),
 			Tria_memf(-510.0,    0.0,  510.0),
 			Tria_memf(   0.0,  510.0,  1020.0),
@@ -131,11 +136,12 @@ public:
 			(void)xQueueReceive(refer_speed_q, &refer_speed, QUEUE_TIMEOUT);
 
 			task_st = std::chrono::high_resolution_clock::now();
+			motor_speed = motorFilter(motor_speed);
+			refer_speed = refFilter(refer_speed);
 
 			float err = refer_speed - motor_speed;
 			constexpr float OUT_MIN = 0.17f, OUT_MAX = 0.95f;
 			constexpr float U_MIN = 0.0f, U_MAX = 1.0f;
-			static float prev_u = 0.0f;
 			static float error_integral = 0.0f;
 			float u;
 
@@ -143,11 +149,10 @@ public:
 				u = OUT_MIN;
 			}
 			else {
-				error_integral = (OUT_MIN < prev_u && prev_u < OUT_MAX) ? ierror(err) : error_integral;
+				error_integral = (OUT_MIN < u && u < OUT_MAX) ? ierror(err) : error_integral;
 				u = mamdani(rad_s2rpm(err)) + K_I*error_integral;
+				u = uFilter(u);
 			}
-			u = u*U_ALPHA + (1-U_ALPHA)*prev_u;
-			prev_u = u;
 
 			uint8_t pwm_out = (uint8_t)(std::clamp((u-U_MIN)/(U_MAX-U_MIN), OUT_MIN, OUT_MAX)*PWM_MAX);
 			pwm_out &= PWM_MAX;
@@ -160,7 +165,7 @@ public:
 			float error_derivative = derror(err);
 			(void)xQueueOverwrite(_tel_ref_speed_q,   &refer_speed);
 			(void)xQueueOverwrite(_tel_motor_speed_q, &motor_speed);
-			(void)xQueueOverwrite(_tel_error_q,       &err);
+			(void)xQueueOverwrite(_tel_error_q,       &error_integral);
 			(void)xQueueOverwrite(_tel_error_der_q,   &error_derivative);
 			(void)xQueueOverwrite(_tel_control_signal_q, &u);
 

@@ -12,7 +12,6 @@
 
 #include "globalVar.h"
 #include "pwm.h"
-#include "esp_dsp.h"
 #include "Fuzzyficator.hpp"
 #include "Fuzzyficator.cpp"
 #include "TakagiTsugenoController.hpp"
@@ -22,11 +21,7 @@
 #include "Telemetry.cpp"
 #define RC 0.85
 #define FFT_SIZE 256
-static float adc_buffer[FFT_SIZE];
-static int adc_index = 0;
-static bool fft_ready = false;
 float alpha = SAMPLE_TIME_s / (SAMPLE_TIME_s + RC);
-static float time_domain_data[FFT_SIZE];
 
 
 extern "C" {
@@ -51,9 +46,6 @@ QueueHandle_t tel_control_signal_q = xQueueCreate(1, sizeof(float));
 typedef struct {
 	adc_oneshot_unit_handle_t adc_handle;
 } timer_args;
-void init_fft() {
-    dsps_fft2r_init_fc32(NULL, CONFIG_DSP_MAX_FFT_SIZE);
-}
 
 void IRAM_ATTR send_status(void* argp) {
 	timer_args *args = (timer_args*)argp;
@@ -63,16 +55,26 @@ void IRAM_ATTR send_status(void* argp) {
 	int adc_read = 0;
 	(void)adc_oneshot_read(adc_handle, ADC_CHANNEL_0, &adc_read);
 
-	//lowpass filter
-	// static float prev_adc_value = 0.0;
-    // float adc_value = (float)adc_read * (REF_MAX - REF_MIN) / (float)(0b111111111) + REF_MIN;
-    // adc_value = alpha * adc_value + (1 - alpha) * prev_adc_value;
-    // prev_adc_value = adc_value;
-
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 	float adc_value = (float)adc_read*(REF_MAX-REF_MIN)/(float)(0b111111111) + REF_MIN;
 
-	float refer_speed = adc_value;
+	static int sine_lut_idx = 0;
+	static int sine_lut_idx_step = 1;
+	static float sine_lut_mult = 1.0f;
+	
+	float sine = sine_lut_mult*AMPLITUDE*sine_wave_90_deg_LUT[sine_lut_idx];
+	sine_lut_idx += sine_lut_idx_step;
+
+	if (sine_lut_idx >= QUARTER_TABLE_SIZE) {
+		sine_lut_idx_step = -1;
+		sine_lut_idx = QUARTER_TABLE_SIZE - 2;
+	}
+	if (sine_lut_idx <= 0) {
+		sine_lut_idx_step = 1;
+		sine_lut_mult *= -1.0;
+		sine_lut_idx = 0;
+	}
+	float refer_speed = adc_value + sine;
 	static float prev_motor_speed = 0.0;
 	float motor_speed = 0.0;
 
@@ -80,14 +82,6 @@ void IRAM_ATTR send_status(void* argp) {
 	int32_t prev_count = motor_count;
 	xQueueReceiveFromISR(motor_count_q, &motor_count, &xHigherPriorityTaskWoken);
 	motor_speed = (float)(motor_count-prev_count)*2.0f*M_PI / (ENCODER_SLITS*SAMPLE_TIME_s);
-	motor_speed = alpha*motor_speed + (1-alpha)*prev_motor_speed;
-	prev_motor_speed = motor_speed;
-	
-	adc_buffer[adc_index++] = adc_value;
-	if (adc_index >= FFT_SIZE) {
-			adc_index = 0;
-			fft_ready = true;  // Signal that FFT processing can start
-	}
 
 	xQueueOverwriteFromISR(refer_speed_q, &refer_speed, &xHigherPriorityTaskWoken);
 	xQueueOverwriteFromISR(motor_speed_q, &motor_speed, &xHigherPriorityTaskWoken);
@@ -103,41 +97,7 @@ void count_encoder(void* args) {
 	motor_count ++;
 	xQueueOverwriteFromISR(motor_count_q, &motor_count, &higherTaskWoken);
 }
-void FFtToIFFT(void *param) {
-    float fft_data[FFT_SIZE * 2];  // Buffer for complex FFT input (real and imaginary)
-    
-    while (true) {
-        if (fft_ready) {
-            fft_ready = false;
 
-            //Buffer
-            for (int i = 0; i < FFT_SIZE; i++) {
-                fft_data[i * 2] = adc_buffer[i]; 
-                fft_data[i * 2 + 1] = 0.0;        
-            }
-
-            //FFT
-            dsps_fft2r_fc32(fft_data, FFT_SIZE);
-            dsps_bit_rev_fc32(fft_data, FFT_SIZE);
-            dsps_cplx2reC_fc32(fft_data, FFT_SIZE);
-
-            //IFFT
-            // dsps_ifft2r_fc32(fft_data, FFT_SIZE);
-            // dsps_bit_rev_fc32(fft_data, FFT_SIZE);
-            // dsps_cplx2reC_fc32(fft_data, FFT_SIZE);
-
-           //Normalization 
-            // for (int i = 0; i < FFT_SIZE; i++) {
-            //     time_domain_data[i] = fft_data[i * 2] / FFT_SIZE;  // Only real part, normalized
-            // }
-
-            
-			// xQueueSend(reconstructed_data_q, time_domain_data, portMAX_DELAY);
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(10));  //Cambiar delay
-    }
-}
 void app_main(void)
 {
 	adc_oneshot_unit_handle_t adc0_handle;
@@ -154,12 +114,6 @@ void app_main(void)
 	{
 		return;
 	}
-
-	init_fft();
-	// reconstructed_data_q = xQueueCreate(10, sizeof(time_domain_data));
-	
-	// Start FFT processing task
-	xTaskCreatePinnedToCore(FFtToIFFT, "FFT_Task", 4096, NULL, 5, NULL, 0);
 
 	printf("Configurando Interrupcion GPIO\n");
 	if (gpio_install_isr_service(0))
@@ -197,7 +151,7 @@ void app_main(void)
 	esp_timer_start_periodic(timer_handle, SAMPLE_TIME_us);
 
 	ControllerTask controllerTask(
-		"Controller Task", 2500,
+		"Controller Task", 2800,
 		refer_speed_q,
 		motor_speed_q,
 		LEDC_CHANNEL_0,

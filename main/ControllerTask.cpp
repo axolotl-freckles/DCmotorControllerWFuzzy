@@ -57,17 +57,23 @@ private:
 	const QueueHandle_t _tel_error_q;
 	const QueueHandle_t _tel_error_der_q;
 	const QueueHandle_t _tel_control_signal_q;
+	const QueueHandle_t _tel_exec_time_q;
 
 	static const TickType_t QUEUE_TIMEOUT = 10;
 
 	// taskFunction constants:
+	static constexpr float OUT_MIN = 0.17f;
+	static constexpr float OUT_MAX = 0.95f;
+	static constexpr float U_MIN = 0.0f;
+	static constexpr float U_MAX = 1.0f;
+
 	static constexpr float CRR_CERO     = 0.00;
 	static constexpr float CRR_PEQUE    = 0.25;
 	static constexpr float CRR_MEDIA    = 0.50;
 	static constexpr float CRR_MODERADA = 0.75;
 	static constexpr float CRR_GRANDE   = 1.00;
 
-	static constexpr float K_I = 0.02;
+	static constexpr float K_I = 0.02f;
 	static constexpr float U_RC = 0.80;
 	static constexpr float U_ALPHA = SAMPLE_TIME_s / (SAMPLE_TIME_s + U_RC);
 
@@ -82,7 +88,8 @@ public:
 		QueueHandle_t tel_motor_speed_q,
 		QueueHandle_t tel_error_q,
 		QueueHandle_t tel_error_der_q,
-		QueueHandle_t tel_control_signal_q
+		QueueHandle_t tel_control_signal_q,
+		QueueHandle_t tel_exec_time_q
 	)
 	: Task(name, stack_size, 2),
 		refer_speed_q(_refer_speed_q), motor_speed_q(_motor_speed_q),
@@ -91,7 +98,8 @@ public:
 		_tel_motor_speed_q(tel_motor_speed_q),
 		_tel_error_q(tel_error_q),
 		_tel_error_der_q(tel_error_der_q),
-		_tel_control_signal_q(tel_control_signal_q)
+		_tel_control_signal_q(tel_control_signal_q),
+		_tel_exec_time_q(tel_exec_time_q)
 	{}
 
 	void taskFunction() {
@@ -131,6 +139,13 @@ public:
 		high_resolution_clock::time_point task_st;
 		high_resolution_clock::time_point task_en;
 
+		// loop variables
+		float err;
+		float error_integral = 0.0f;
+		float error_derivative;
+		float u;
+		float exec_time_us;
+
 		while (true) {
 			(void)xQueueReceive(motor_speed_q, &motor_speed, QUEUE_TIMEOUT);
 			(void)xQueueReceive(refer_speed_q, &refer_speed, QUEUE_TIMEOUT);
@@ -139,11 +154,7 @@ public:
 			motor_speed = motorFilter(motor_speed);
 			refer_speed = refFilter(refer_speed);
 
-			float err = refer_speed - motor_speed;
-			constexpr float OUT_MIN = 0.17f, OUT_MAX = 0.95f;
-			constexpr float U_MIN = 0.0f, U_MAX = 1.0f;
-			static float error_integral = 0.0f;
-			float u;
+			err = refer_speed - motor_speed;
 
 			if (motor_speed < rpm2rad_s(50)) {
 				u = OUT_MIN;
@@ -153,6 +164,7 @@ public:
 				u = mamdani(rad_s2rpm(err)) + K_I*error_integral;
 				u = uFilter(u);
 			}
+			error_derivative = derror(err);
 
 			uint8_t pwm_out = (uint8_t)(std::clamp((u-U_MIN)/(U_MAX-U_MIN), OUT_MIN, OUT_MAX)*PWM_MAX);
 			pwm_out &= PWM_MAX;
@@ -161,22 +173,23 @@ public:
 
 			task_en = std::chrono::high_resolution_clock::now();
 			microseconds task_duration_us = duration_cast<microseconds>(task_en-task_st);
+			exec_time_us = task_duration_us.count();
 
-			float error_derivative = derror(err);
 			(void)xQueueOverwrite(_tel_ref_speed_q,   &refer_speed);
 			(void)xQueueOverwrite(_tel_motor_speed_q, &motor_speed);
 			(void)xQueueOverwrite(_tel_error_q,       &error_integral);
 			(void)xQueueOverwrite(_tel_error_der_q,   &error_derivative);
 			(void)xQueueOverwrite(_tel_control_signal_q, &u);
+			(void)xQueueOverwrite(_tel_exec_time_q, &exec_time_us);
 
-			constexpr int BUFF_SIZE = 12+29+10+24+1;
-			char buffer[BUFF_SIZE] = {0};
-			int  offset = 0;
-			offset += sprintf(buffer+offset,
-				"\r[%7.1eus] R:%6.2f e:%7.2fde:%7.2f => u%5.2f o:%3d",
-				(float)task_duration_us.count(), rad_s2rpm(refer_speed), rad_s2rpm(err), rad_s2rpm(error_derivative), u, pwm_out
-			);
-			(void)printf("%s", buffer);
+			// constexpr int BUFF_SIZE = 12+29+10+24+1;
+			// char buffer[BUFF_SIZE] = {0};
+			// int  offset = 0;
+			// offset += sprintf(buffer+offset,
+			// 	"\r[%7.1eus] R:%6.2f e:%7.2fde:%7.2f => u%5.2f o:%3d",
+			// 	(float)task_duration_us.count(), rad_s2rpm(refer_speed), rad_s2rpm(err), rad_s2rpm(error_derivative), u, pwm_out
+			// );
+			// (void)printf("%s", buffer);
 
 			vTaskDelayUntil(&x_last_time_awake,SAMPLE_TIME_ms / portTICK_PERIOD_MS);
 		}

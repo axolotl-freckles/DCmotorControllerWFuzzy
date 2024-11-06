@@ -12,6 +12,7 @@
 #ifndef TELEMETRY_CPP
 #define TELEMETRY_CPP
 
+#include <initializer_list>
 #include <cstring>
 
 #include "freertos/FreeRTOS.h"
@@ -24,25 +25,29 @@
 #include "globalVar.h"
 #include "taskClass.hpp"
 
+template<int n_channels>
 class Telemetry : public Task {
 public:
-	static constexpr int BUFFSIZE = 56;
+	static constexpr int BUFFSIZE = 11*n_channels + 1;
 	static const TickType_t QUEUE_TIMEOUT = SAMPLE_TIME_ms / portTICK_PERIOD_MS;
 
 	void taskFunction() {
 		TickType_t previousWakeTime = xTaskGetTickCount();
-		float refer, motor_speed, error, error_derivative, control_signal;
+		float datapoints[n_channels] = {0.0f};
+		int offset;
 		while (true) {
-			(void)xQueueReceive(_refer_q, &refer, QUEUE_TIMEOUT);
-			(void)xQueueReceive(_motor_speed_q, &motor_speed, QUEUE_TIMEOUT);
-			(void)xQueueReceive(_error_q, &error, QUEUE_TIMEOUT);
-			(void)xQueueReceive(_errorDerivative_q, &error_derivative, QUEUE_TIMEOUT);
-			(void)xQueueReceive(  _controlSignal_q,   &control_signal, QUEUE_TIMEOUT);
+			offset = 0;
+			for(int i=0; i<n_channels; i++) {
+				(void)xQueueReceive(_channels[i], datapoints+i, QUEUE_TIMEOUT);
+				offset += sprintf(buffer+offset, "%10.2e,", datapoints[i]);
+			}
+			buffer[BUFFSIZE-2] = '\n';
+			buffer[BUFFSIZE-1] = '\0';
 
-			(void)sprintf(
-				buffer, "%10.2e,%10.2e,%10.2e,%10.2e,%10.2e\n",
-				refer, motor_speed, error, error_derivative, control_signal
-			);
+			// (void)sprintf(
+			// 	buffer, "%10.2e,%10.2e,%10.2e,%10.2e,%10.2e\n",
+			// 	refer, motor_speed, error, error_derivative, control_signal
+			// );
 			uart_write_bytes(_uart_num, buffer, std::strlen(buffer));
 			xTaskDelayUntil(&previousWakeTime, SAMPLE_TIME_ms / portTICK_PERIOD_MS);
 		}
@@ -53,19 +58,15 @@ public:
 		uint32_t stack_size,
 		uart_port_t uart_num,
 		int tx_pin,
-		QueueHandle_t refer_q,
-		QueueHandle_t motor_speed_q,
-		QueueHandle_t error_q,
-		QueueHandle_t errorDerivative_q,
-		QueueHandle_t controlSignal_q
+		std::initializer_list<QueueHandle_t> channels
 	)
 	:
 		Task(name, stack_size, 3),
-		_uart_num(uart_num), _tx_pin(tx_pin),
-		_refer_q(refer_q), _motor_speed_q(motor_speed_q),
-		_error_q(error_q), _errorDerivative_q(errorDerivative_q),
-		_controlSignal_q(controlSignal_q)
+		_uart_num(uart_num), _tx_pin(tx_pin)
 	{
+		for (int i=0; i<n_channels; i++) {
+			_channels[i] = channels.begin()[i];
+		}
 		uart_config_t uart_config = {
 			.baud_rate = 115200,
 			.data_bits = UART_DATA_8_BITS,
@@ -91,11 +92,7 @@ private:
 	char buffer[BUFFSIZE];
 	const uart_port_t _uart_num;
 	const int _tx_pin;
-	const QueueHandle_t _refer_q;
-	const QueueHandle_t _motor_speed_q;
-	const QueueHandle_t _error_q;
-	const QueueHandle_t _errorDerivative_q;
-	const QueueHandle_t _controlSignal_q;
+	QueueHandle_t _channels[n_channels];
 };
 
 #endif

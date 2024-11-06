@@ -42,6 +42,7 @@ QueueHandle_t tel_motor_speed_q = xQueueCreate(1, sizeof(float));
 QueueHandle_t tel_error_q       = xQueueCreate(1, sizeof(float));
 QueueHandle_t tel_error_der_q   = xQueueCreate(1, sizeof(float));
 QueueHandle_t tel_control_signal_q = xQueueCreate(1, sizeof(float));
+QueueHandle_t tel_exec_time_q      = xQueueCreate(1, sizeof(float));
 
 typedef struct {
 	adc_oneshot_unit_handle_t adc_handle;
@@ -159,16 +160,20 @@ void app_main(void)
 		tel_motor_speed_q,
 		tel_error_q,
 		tel_error_der_q,
-		tel_control_signal_q
+		tel_control_signal_q,
+		tel_exec_time_q
 	);
-	Telemetry telemetryTask(
+	Telemetry<6> telemetryTask(
 		"Telemetry Task", 2048,
 		UART_NUM_2, TELEMETRY_TX_PIN,
-		tel_ref_speed_q,
-		tel_motor_speed_q,
-		tel_error_q,
-		tel_error_der_q,
-		tel_control_signal_q
+		{
+			tel_ref_speed_q,
+			tel_motor_speed_q,
+			tel_error_q,
+			tel_error_der_q,
+			tel_control_signal_q,
+			tel_exec_time_q
+		}
 	);
 
 	(void)printf("\n\n");

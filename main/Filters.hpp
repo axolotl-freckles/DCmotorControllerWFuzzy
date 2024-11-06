@@ -15,12 +15,12 @@ public:
 	virtual float operator() (float value) = 0;
 };
 
-template <int av_size>
-class Average : public Filter {
+template <int av_size = 2>
+class SlidingAverage : public Filter {
 public:
-	explicit Average(const Average<av_size> &other);
-	Average();
-	Average(float starting_average);
+	explicit SlidingAverage(const SlidingAverage<av_size> &other);
+	SlidingAverage();
+	SlidingAverage(float starting_average);
 
 	inline float* samples() const { return _samples; }
 	inline const float current_average() const {return _curr_av; }
@@ -57,7 +57,7 @@ private:
 	float _prev_val;
 };
 
-template<int av_size> Average<av_size>::Average(const Average<av_size> &other)
+template<int av_size> SlidingAverage<av_size>::SlidingAverage(const SlidingAverage<av_size> &other)
 :
 	Filter(),
 	_curr_av(other._curr_av), idx(0)
@@ -65,12 +65,12 @@ template<int av_size> Average<av_size>::Average(const Average<av_size> &other)
 	for (int i=0; i<av_size; i++)
 		_samples[i] = other.samples()[i];
 }
-template<int av_size> Average<av_size>::Average()
+template<int av_size> SlidingAverage<av_size>::SlidingAverage()
 :
 	Filter(),
 	_samples{0}, _curr_av(0), idx(0)
 {}
-template<int av_size> Average<av_size>::Average(float starting_average)
+template<int av_size> SlidingAverage<av_size>::SlidingAverage(float starting_average)
 :
 	Filter(),
 	_samples{0}, _curr_av(starting_average), idx(0)

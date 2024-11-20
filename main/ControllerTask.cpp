@@ -108,18 +108,18 @@ public:
 		LowPass uFilter(U_RC, SAMPLE_TIME_s);
 
 		const Fuzzyficator errorFuzz {
-			Tria_memf(-210.0, -200.0, -100.0, -1),
+			Tria_memf(-210.0, -200.0, -100.0, LEFTMOST),
 			Tria_memf(-200.0, -100.0,    0.0),
 			Tria_memf(-100.0,    0.0,  100.0),
 			Tria_memf(   0.0,  100.0,  200.0),
-			Tria_memf( 100.0,  200.0,  210.0,  1)
+			Tria_memf( 100.0,  200.0,  210.0,  RIGHTMOST)
 		};
 		const Fuzzyficator errorDerivativeFuzz {
-			Tria_memf(-1030.0, -1020.0, -510.0, -1),
+			Tria_memf(-1030.0, -1020.0, -510.0, LEFTMOST),
 			Tria_memf(-1020.0, -510.0,    0.0),
 			Tria_memf(-510.0,    0.0,  510.0),
 			Tria_memf(   0.0,  510.0,  1020.0),
-			Tria_memf( 510.0,  1020.0, 1030.0, 1)
+			Tria_memf( 510.0,  1020.0, 1030.0, RIGHTMOST)
 		};
 		const vMatrix_t<float> FAM = {
 			{     CRR_CERO,     CRR_CERO,     CRR_CERO,    CRR_PEQUE,    CRR_PEQUE},

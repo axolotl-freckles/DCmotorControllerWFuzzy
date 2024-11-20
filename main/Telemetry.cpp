@@ -25,6 +25,56 @@
 #include "globalVar.h"
 #include "taskClass.hpp"
 
+class CommProtocol {
+public:
+	virtual int transmit(const char* data, int size) = 0;
+private:
+};
+
+class UART : public CommProtocol {
+public:
+	virtual int transmit(const char* data, int size) override {
+		return uart_write_bytes(_uart_num, data, size);
+	}
+
+	UART(
+		uart_port_t uart_num,
+		int tx_pin,
+		int baud_rate,
+		uart_parity_t parity,
+		uart_stop_bits_t stop_bits,
+		uint8_t rx_flow_ctrl_thresh = 122,
+		uint32_t backup_before_sleep = 0
+	)
+	:
+		_uart_num(uart_num),
+		_tx_pin(tx_pin)
+	{
+		uart_config_t uart_config = {
+			.baud_rate = 115200,
+			.data_bits = UART_DATA_8_BITS,
+			.parity    = parity,
+			.stop_bits = stop_bits,
+			.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+			.rx_flow_ctrl_thresh = rx_flow_ctrl_thresh,
+			.flags = {.backup_before_sleep = backup_before_sleep}
+		};
+
+		ESP_ERROR_CHECK(
+			uart_param_config(_uart_num, &uart_config)
+		);
+		ESP_ERROR_CHECK(
+			uart_set_pin(_uart_num, tx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE)
+		);
+		ESP_ERROR_CHECK(
+			uart_driver_install(uart_num, UART_HW_FIFO_LEN(_uart_num)+1, 0, 0, NULL, 0)
+		);
+	}
+private:
+	const uart_port_t _uart_num;
+	const int _tx_pin;
+};
+
 template<int n_channels>
 class Telemetry : public Task {
 public:
@@ -44,11 +94,8 @@ public:
 			buffer[BUFFSIZE-2] = '\n';
 			buffer[BUFFSIZE-1] = '\0';
 
-			// (void)sprintf(
-			// 	buffer, "%10.2e,%10.2e,%10.2e,%10.2e,%10.2e\n",
-			// 	refer, motor_speed, error, error_derivative, control_signal
-			// );
-			uart_write_bytes(_uart_num, buffer, std::strlen(buffer));
+			// uart_write_bytes(_uart_num, buffer, std::strlen(buffer));
+			_communicationProtocol->transmit(buffer, std::strlen(buffer));
 			xTaskDelayUntil(&previousWakeTime, SAMPLE_TIME_ms / portTICK_PERIOD_MS);
 		}
 	}
@@ -56,43 +103,22 @@ public:
 	Telemetry(
 		const char *name,
 		uint32_t stack_size,
-		uart_port_t uart_num,
-		int tx_pin,
-		std::initializer_list<QueueHandle_t> channels
+		CommProtocol* communicationProtocol,
+		QueueHandle_t channels[n_channels]
 	)
 	:
 		Task(name, stack_size, 3),
-		_uart_num(uart_num), _tx_pin(tx_pin)
+		CommProtocol(communicationProtocol)
 	{
 		for (int i=0; i<n_channels; i++) {
-			_channels[i] = channels.begin()[i];
+			_channels[i] = channels[i];
 		}
-		uart_config_t uart_config = {
-			.baud_rate = 115200,
-			.data_bits = UART_DATA_8_BITS,
-			.parity    = UART_PARITY_DISABLE,
-			.stop_bits = UART_STOP_BITS_1,
-			.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-			.rx_flow_ctrl_thresh = 122,
-			.flags = {.backup_before_sleep = 0}
-		};
-
-		ESP_ERROR_CHECK(
-			uart_param_config(_uart_num, &uart_config)
-		);
-		ESP_ERROR_CHECK(
-			uart_set_pin(_uart_num, tx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE)
-		);
-		ESP_ERROR_CHECK(
-			uart_driver_install(uart_num, UART_HW_FIFO_LEN(_uart_num)+1, 0, 0, NULL, 0)
-		);
 	}
 
 private:
 	char buffer[BUFFSIZE];
-	const uart_port_t _uart_num;
-	const int _tx_pin;
 	QueueHandle_t _channels[n_channels];
+	CommProtocol* _communicationProtocol;
 };
 
 #endif

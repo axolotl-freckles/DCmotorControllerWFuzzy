@@ -19,7 +19,7 @@ constexpr int PWM_OUT_GPIO = 14;
 
 constexpr int TELEMETRY_TX_PIN = 18;
 
-constexpr   int QUARTER_TABLE_SIZE = 60;
+constexpr int QUARTER_TABLE_SIZE = 60;
 constexpr float AMPLITUDE = 10.0;
 
 const float sine_wave_90_deg_LUT[QUARTER_TABLE_SIZE] = {

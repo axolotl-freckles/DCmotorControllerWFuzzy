@@ -12,13 +12,18 @@
 #ifndef MAMDANI_CONTROLLER_CPP
 #define MAMDANI_CONTROLLER_CPP
 
+#include <cassert>
+
 #include "MamdaniController.hpp"
 
 float MamdaniController::operator() (float error) {
 	float error_derivative = _error_derivator(error);
 
-	(void)_error_fuzzyficator(error, error_mu);
-	(void)_error_derivative_fuzzyficator(error_derivative, error_derivative_mu);
+	int fuzzyficator_error_code = 0;
+	fuzzyficator_error_code = _error_fuzzyficator(error, error_mu);
+	assert(fuzzyficator_error_code == 0);
+	fuzzyficator_error_code = _error_derivative_fuzzyficator(error_derivative, error_derivative_mu);
+	assert(fuzzyficator_error_code == 0);
 
 	float acum_rules = 0.0f;
 	float acum_infer = 0.0f;

@@ -23,7 +23,7 @@ public:
 	SlidingAverage(float starting_average);
 
 	inline float* samples() const { return _samples; }
-	inline const float current_average() const {return _curr_av; }
+	inline float current_average() const { return _curr_av; }
 
 	inline virtual float operator() (float value) override {
 		_samples[idx] = value;

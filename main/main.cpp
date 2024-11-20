@@ -80,7 +80,6 @@ void IRAM_ATTR send_status(void* argp) {
 		sine_lut_idx = 0;
 	}
 	float refer_speed = adc_value + sine;
-	static float prev_motor_speed = 0.0;
 	float motor_speed = 0.0;
 
 	static int32_t motor_count = 0;

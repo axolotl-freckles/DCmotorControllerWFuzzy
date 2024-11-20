@@ -11,6 +11,9 @@ constexpr int     ENCODER_SLITS  = 80;
 inline float rad_s2rpm(const float val) {return val*(60/(2*M_PI));}
 inline float rpm2rad_s(const float val) {return val*(2*M_PI/60);}
 
+constexpr int ADC_BITWIDTH = 9;
+constexpr int ADC_MAX      = (1<<ADC_BITWIDTH)-1;
+
 constexpr int PWM_RESOLUTION = 8;
 constexpr int PWM_MAX        = (1<<PWM_RESOLUTION)-1;
 

@@ -74,8 +74,10 @@ private:
 	static constexpr float CRR_GRANDE   = 1.00;
 
 	static constexpr float K_I = 0.02f;
-	static constexpr float U_RC = 0.80;
-	static constexpr float U_ALPHA = SAMPLE_TIME_s / (SAMPLE_TIME_s + U_RC);
+	static constexpr float REF_RC   = 0.85f;
+	static constexpr float INPUT_RC = 0.85f;
+	static constexpr float U_RC     = 0.80f;
+	static constexpr float U_ALPHA  = SAMPLE_TIME_s / (SAMPLE_TIME_s + U_RC);
 
 public:
 	ControllerTask(
@@ -102,9 +104,9 @@ public:
 		_tel_exec_time_q(tel_exec_time_q)
 	{}
 
-	void taskFunction() {
-		LowPass refFilter(0.85, SAMPLE_TIME_s);
-		LowPass motorFilter(0.85, SAMPLE_TIME_s);
+	void taskFunction() override {
+		LowPass refFilter(REF_RC, SAMPLE_TIME_s);
+		LowPass motorFilter(INPUT_RC, SAMPLE_TIME_s);
 		LowPass uFilter(U_RC, SAMPLE_TIME_s);
 
 		const Fuzzyficator errorFuzz {
@@ -181,15 +183,6 @@ public:
 			(void)xQueueOverwrite(_tel_error_der_q,   &error_derivative);
 			(void)xQueueOverwrite(_tel_control_signal_q, &u);
 			(void)xQueueOverwrite(_tel_exec_time_q, &exec_time_us);
-
-			// constexpr int BUFF_SIZE = 12+29+10+24+1;
-			// char buffer[BUFF_SIZE] = {0};
-			// int  offset = 0;
-			// offset += sprintf(buffer+offset,
-			// 	"\r[%7.1eus] R:%6.2f e:%7.2fde:%7.2f => u%5.2f o:%3d",
-			// 	(float)task_duration_us.count(), rad_s2rpm(refer_speed), rad_s2rpm(err), rad_s2rpm(error_derivative), u, pwm_out
-			// );
-			// (void)printf("%s", buffer);
 
 			vTaskDelayUntil(&x_last_time_awake,SAMPLE_TIME_ms / portTICK_PERIOD_MS);
 		}

@@ -19,10 +19,6 @@
 #include "DCmotor_ControlLaw.cpp"
 #include "ControllerTask.cpp"
 #include "Telemetry.cpp"
-#define RC 0.85
-#define FFT_SIZE 256
-float alpha = SAMPLE_TIME_s / (SAMPLE_TIME_s + RC);
-
 
 extern "C" {
 
@@ -65,13 +61,13 @@ void IRAM_ATTR send_status(void* argp) {
 	(void)adc_oneshot_read(adc_handle, ADC_CHANNEL_0, &adc_read);
 
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-	float adc_value = (float)adc_read*(REF_MAX-REF_MIN)/(float)(0b111111111) + REF_MIN;
+	float adc_value = (float)adc_read*(REF_MAX-REF_MIN)/(float)(ADC_MAX) + REF_MIN;
 
-	static int sine_lut_idx = 0;
+	static int sine_lut_idx      = 0;
 	static int sine_lut_idx_step = 1;
-	static float sine_lut_mult = 1.0f;
+	static float sine_lut_sign   = 1.0f;
 	
-	float sine = sine_lut_mult*AMPLITUDE*sine_wave_90_deg_LUT[sine_lut_idx];
+	float sine = sine_lut_sign*AMPLITUDE*sine_wave_90_deg_LUT[sine_lut_idx];
 	sine_lut_idx += sine_lut_idx_step;
 
 	if (sine_lut_idx >= QUARTER_TABLE_SIZE) {
@@ -80,7 +76,7 @@ void IRAM_ATTR send_status(void* argp) {
 	}
 	if (sine_lut_idx <= 0) {
 		sine_lut_idx_step = 1;
-		sine_lut_mult *= -1.0;
+		sine_lut_sign *= -1.0;
 		sine_lut_idx = 0;
 	}
 	float refer_speed = adc_value + sine;
@@ -110,7 +106,7 @@ void count_encoder(void* args) {
 void app_main(void)
 {
 	adc_oneshot_unit_handle_t adc0_handle;
-	if (set_adc(&adc0_handle, ADC_UNIT_1, ADC_BITWIDTH_9, ADC_CHANNEL_0))
+	if (set_adc(&adc0_handle, ADC_UNIT_1, static_cast<adc_bitwidth_t>(ADC_BITWIDTH), ADC_CHANNEL_0))
 		return;
 
 	if (

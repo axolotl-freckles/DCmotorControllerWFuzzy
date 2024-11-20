@@ -41,30 +41,30 @@ void Fuzzyficator::operator() (const float value, float *const out) const {
 	}
 }
 
-Tria_memf::Tria_memf(const float a, const float m, const float b, const int edge)
+Tria_memf::Tria_memf(const float a, const float m, const float b, Memf_edge edge)
 : a(a), m(m), b(b), edge(edge)
 {}
 float Tria_memf::operator() (const float value) {
-	if (edge < 0 && value < m) return 1.0;
-	if (edge > 0 && value > m) return 1.0;
+	if (edge == LEFTMOST  && value < m) return 1.0;
+	if (edge == RIGHTMOST && value > m) return 1.0;
 	return tria_memf(value, a, m, b);
 }
 
-Trap_memf::Trap_memf(const float a, const float b, const float c, const float d, const int edge)
+Trap_memf::Trap_memf(const float a, const float b, const float c, const float d, Memf_edge edge)
 : a(a), b(b), c(c), d(d), edge(edge)
 {}
 float Trap_memf::operator()(const float value) {
-	if (edge < 0 && value < b) return 1.0;
-	if (edge > 0 && value > c) return 1.0;
+	if (edge == LEFTMOST  && value < b) return 1.0;
+	if (edge == RIGHTMOST && value > c) return 1.0;
 	return trap_memf(value, a, b, c, d);
 }
 
-Bell_memf::Bell_memf(const float std_dev, const float mid, const int edge)
+Bell_memf::Bell_memf(const float std_dev, const float mid, Memf_edge edge)
 : std_dev(std_dev), mid(mid), edge(edge)
 {}
 float Bell_memf::operator()(const float value) {
-	if (edge < 0 && value < mid) return 1.0;
-	if (edge > 0 && value > mid) return 1.0;
+	if (edge == LEFTMOST  && value < mid) return 1.0;
+	if (edge == RIGHTMOST && value > mid) return 1.0;
 	return bell_memf(value, std_dev, mid);
 }
 

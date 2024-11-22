@@ -35,3 +35,5 @@ const float sine_wave_90_deg_LUT[QUARTER_TABLE_SIZE] = {
 	0.9511, 0.9588, 0.9659, 0.9724, 0.9781, 0.9832, 0.9877, 0.9914,
 	0.9945, 0.9969, 0.9986, 0.9996
 };
+
+constexpr int N_TELEMETRY_CHANNELS = 6;

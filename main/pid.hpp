@@ -24,6 +24,9 @@ public:
 
 	inline float sampleTime() const         { return SAMPLE_TIME_s;}
 	inline float integralAcumulator() const { return integral_acum;}
+	inline void setIntegralAcumulator(float _integral_acum) {
+		integral_acum = _integral_acum;
+	}
 
 	/**
 	 * @brief Calculates the integral of the given value

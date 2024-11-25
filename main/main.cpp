@@ -91,7 +91,7 @@ void app_main(void)
 
 	if (
 		innit_pwm (
-			PWM_OUT_GPIO, LEDC_CHANNEL_0, LEDC_TIMER_1,
+			PWM_OUT_GPIO, PWM_CHANNEL, LEDC_TIMER_1,
 			20000, (ledc_timer_bit_t)PWM_RESOLUTION,
 			0x0F, 0
 		).esp_err
@@ -103,6 +103,7 @@ void app_main(void)
 	printf("Configurando Interrupcion GPIO\n");
 	if (gpio_install_isr_service(0))
 		return;
+	// ESP_ERROR_CHECK(gpio_install_isr_service(0));
 	
 	if (gpio_isr_handler_add((gpio_num_t)ENCODER_GPIO, count_encoder, NULL))
 		return;
@@ -136,12 +137,12 @@ void app_main(void)
 	esp_timer_start_periodic(timer_handle, SAMPLE_TIME_us);
 
 	DataProcessTask dataProcessTask(
-		"Data process Task", 256, 1,
+		"Data process Task", 800, 2,
 		raw_data_q, data_out_q, SAMPLE_TIME_ms
 	);
 	dataProcessTask.start();
 	ACControllerTask controllerTask(
-		"AC Controller Task", 256, 2,
+		"AC Controller Task", 1000, 2,
 		data_out_q, channels, SAMPLE_TIME_ms
 	);
 	UART uartComm(
@@ -161,6 +162,7 @@ void app_main(void)
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}
 }
+// END OF MAIN ####################################################
 
 esp_err_t set_adc(
 	adc_oneshot_unit_handle_t *adc_handle_out,

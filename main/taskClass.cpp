@@ -17,6 +17,7 @@ taskName(name), stackSize(stack_size), priority(prio), taskHandle(NULL)
 Task::~Task() {
 	vTaskSuspend(taskHandle);
 	vTaskDelete(taskHandle);
+	taskHandle = nullptr;
 }
 void Task::start() {
 	if (taskHandle == NULL) {

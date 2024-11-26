@@ -146,7 +146,7 @@ void app_main(void)
 		data_out_q, channels, SAMPLE_TIME_ms
 	);
 	UART uartComm(
-		UART_NUM_2, TELEMETRY_TX_PIN, 115200, UART_PARITY_DISABLE, UART_STOP_BITS_1
+		UART_NUM_2, TELEMETRY_TX_PIN, UART_BAUD_RATE, UART_PARITY, UART_STOP_BITS
 	);
 	Telemetry<N_TELEMETRY_CHANNELS> telemetryTask(
 		"Telemetry Task", 2048,

@@ -13,14 +13,49 @@
 
 #include "taskClass.hpp"
 
+#include <algorithm>
 #include <chrono>
 using namespace std::chrono;
+
+#include "esp_timer.h"
 
 #include "globalVar.h"
 #include "DataProcessTask.cpp"
 #include "pid.hpp"
 #include "pwm.h"
 #include "Filters.hpp"
+
+constexpr int64_t PWM_SAMPLE_TIMEus = 500;
+constexpr float   PWM_SAMPLE_TIMEs  = PWM_SAMPLE_TIMEus*1e-6;
+
+constexpr float OUT_MIN = 0.05f;
+constexpr float OUT_MAX = 0.95f;
+
+/**
+ * @brief It isn't recommended to reduce the sampling time below 10ms with the
+ * FreeRTOS task scheduler. A hardware timer is used instead.
+ * 
+ * @param args The queue handler for the stator flux angular speed.
+ */
+void IRAM_ATTR pwm_output_handler(void* args) {
+	static const QueueHandle_t fluxAngularSpeed = static_cast<QueueHandle_t>(args);
+	static float phase_A_theta = 0.0f;
+
+	float angular_speed = M_TAU;
+	xQueuePeekFromISR(fluxAngularSpeed, &angular_speed);
+
+	// Inline integrator logic
+	phase_A_theta += angular_speed*PWM_SAMPLE_TIMEs;
+	if (phase_A_theta > M_TAU) phase_A_theta -= M_TAU;
+
+	float phase_A = std::clamp((sin(phase_A_theta)+1)/2,           OUT_MIN, OUT_MAX);
+	float phase_B = std::clamp((sin(phase_A_theta+M_TAU/3)+1)/2, OUT_MIN, OUT_MAX);
+	float phase_C = std::clamp((sin(phase_A_theta-M_TAU/3)+1)/2, OUT_MIN, OUT_MAX);
+
+	pwm_set_duty(A_PWM_CHANNEL, static_cast<uint32_t>(phase_A*PWM_MAX)&PWM_MAX);
+	pwm_set_duty(B_PWM_CHANNEL, static_cast<uint32_t>(phase_B*PWM_MAX)&PWM_MAX);
+	pwm_set_duty(C_PWM_CHANNEL, static_cast<uint32_t>(phase_C*PWM_MAX)&PWM_MAX);
+}
 
 class ACControllerTask : public Task {
 public:
@@ -34,6 +69,9 @@ public:
 		float angular_speed = M_TAU;
 		float setted_frecuency = 0.0f;
 
+		xQueueOverwrite(_fluxAngularSpeed, &angular_speed);
+		ESP_ERROR_CHECK(esp_timer_start_periodic(_timer_handle, PWM_SAMPLE_TIMEus));
+
 		high_resolution_clock::time_point task_st;
 		high_resolution_clock::time_point task_en;
 
@@ -43,6 +81,8 @@ public:
 			task_st = high_resolution_clock::now();
 			setted_frecuency = inputFilter(input_data.set_point);
 			angular_speed = setted_frecuency * M_TAU;
+			xQueueOverwrite(_fluxAngularSpeed, &angular_speed);
+
 			_telemetry_data[0] = setted_frecuency;
 			_telemetry_data[1] = input_data.motor_speed;
 
@@ -58,8 +98,6 @@ public:
 					fluxAngularPosition.integralAcumulator()-M_TAU
 				);
 			}
-			
-			pwm_set_duty(PWM_CHANNEL, ((uint32_t)(fluxAngularPosition.integralAcumulator()+1)/2)&PWM_MAX);
 
 			task_en = high_resolution_clock::now();
 			_telemetry_data[N_TELEMETRY_CHANNELS-1] = duration_cast<microseconds>(task_en-task_st).count();
@@ -80,10 +118,21 @@ public:
 		Task(name, stack_size, prio),
 		_data_q(data_q),
 		_telemetry_data{0.0f},
-		_period_tks(period_ms / portTICK_PERIOD_MS)
+		_period_tks(period_ms / portTICK_PERIOD_MS),
+		_timer_handle(nullptr)
 	{
 		for (int i=0; i<N_TELEMETRY_CHANNELS; i++)
 			_telemetry_channels[i] = telemetry_channels[i];
+		
+		_fluxAngularSpeed = xQueueCreate(1, sizeof(float));
+		esp_timer_create_args_t timer_config = {
+			.callback = pwm_output_handler,
+			.arg      = (void*)_fluxAngularSpeed,
+			.dispatch_method = ESP_TIMER_TASK,
+			.name = "TRIFASIC SINE GEN",
+			.skip_unhandled_events = false
+		};
+		ESP_ERROR_CHECK(esp_timer_create(&timer_config, &_timer_handle));
 	}
 
 private:
@@ -91,6 +140,9 @@ private:
 	QueueHandle_t _telemetry_channels[N_TELEMETRY_CHANNELS];
 	float _telemetry_data[N_TELEMETRY_CHANNELS];
 	const TickType_t _period_tks;
+
+	QueueHandle_t      _fluxAngularSpeed;
+	esp_timer_handle_t _timer_handle;
 };
 
 #endif

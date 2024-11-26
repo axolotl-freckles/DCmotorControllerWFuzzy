@@ -4,10 +4,15 @@
 #include <math.h>
 
 #include "hal/ledc_types.h"
+#include "hal/uart_types.h"
 
 constexpr float M_TAU = 2*M_PI;
 
-constexpr int64_t SAMPLE_TIME_us = 10000;
+constexpr int UART_BAUD_RATE = 115200;
+constexpr uart_parity_t    UART_PARITY    = UART_PARITY_DISABLE;
+constexpr uart_stop_bits_t UART_STOP_BITS = UART_STOP_BITS_1;
+
+constexpr int64_t SAMPLE_TIME_us = 16000;
 constexpr int64_t SAMPLE_TIME_ms = SAMPLE_TIME_us/1000;
 constexpr float   SAMPLE_TIME_s  = (SAMPLE_TIME_us*1e-6);
 constexpr int     ENCODER_SLITS  = 80;
@@ -21,6 +26,10 @@ constexpr int ADC_MAX      = (1<<ADC_BITWIDTH)-1;
 constexpr int PWM_RESOLUTION = 8;
 constexpr int PWM_MAX        = (1<<PWM_RESOLUTION)-1;
 constexpr ledc_channel_t PWM_CHANNEL = LEDC_CHANNEL_0;
+
+constexpr ledc_channel_t A_PWM_CHANNEL = LEDC_CHANNEL_0;
+constexpr ledc_channel_t B_PWM_CHANNEL = LEDC_CHANNEL_0;
+constexpr ledc_channel_t C_PWM_CHANNEL = LEDC_CHANNEL_0;
 
 constexpr int ENCODER_GPIO = 26;
 constexpr int PWM_OUT_GPIO = 14;

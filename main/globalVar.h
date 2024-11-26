@@ -28,13 +28,17 @@ constexpr int PWM_MAX        = (1<<PWM_RESOLUTION)-1;
 constexpr ledc_channel_t PWM_CHANNEL = LEDC_CHANNEL_0;
 
 constexpr ledc_channel_t A_PWM_CHANNEL = LEDC_CHANNEL_0;
-constexpr ledc_channel_t B_PWM_CHANNEL = LEDC_CHANNEL_0;
-constexpr ledc_channel_t C_PWM_CHANNEL = LEDC_CHANNEL_0;
+constexpr ledc_channel_t B_PWM_CHANNEL = LEDC_CHANNEL_1;
+constexpr ledc_channel_t C_PWM_CHANNEL = LEDC_CHANNEL_2;
 
-constexpr int ENCODER_GPIO = 26;
-constexpr int PWM_OUT_GPIO = 14;
+constexpr int A_PWM_OUT_GPIO = 27;
+constexpr int B_PWM_OUT_GPIO = 26;
+constexpr int C_PWM_OUT_GPIO = 25;
 
-constexpr int TELEMETRY_TX_PIN = 25;
+constexpr int ENCODER_GPIO = 13;
+constexpr int PWM_OUT_GPIO = 27;
+
+constexpr int TELEMETRY_TX_PIN = 32;
 
 constexpr int QUARTER_TABLE_SIZE = 60;
 constexpr float AMPLITUDE = 10.0;

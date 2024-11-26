@@ -25,7 +25,7 @@ using namespace std::chrono;
 #include "pwm.h"
 #include "Filters.hpp"
 
-constexpr int64_t PWM_SAMPLE_TIMEus = 500;
+constexpr int64_t PWM_SAMPLE_TIMEus = 200;
 constexpr float   PWM_SAMPLE_TIMEs  = PWM_SAMPLE_TIMEus*1e-6;
 
 constexpr float OUT_MIN = 0.05f;
@@ -59,12 +59,14 @@ void IRAM_ATTR pwm_output_handler(void* args) {
 
 class ACControllerTask : public Task {
 public:
+	static constexpr ledc_timer_t PWM_TIMER_SRC = LEDC_TIMER_1;
+	static constexpr int   PWM_FREQ_Hz    = 20000;
 	static constexpr float SINE_DISP_MULT = 30.0f;
 	void taskFunction() override {
 		TickType_t _last_time_awake = xTaskGetTickCount();
 		Data_out input_data;
 
-		LowPass inputFilter(0.9, SAMPLE_TIME_s);
+		LowPass inputFilter(0.5, SAMPLE_TIME_s);
 		Integrator fluxAngularPosition(SAMPLE_TIME_s);
 		float angular_speed = M_TAU;
 		float setted_frecuency = 0.0f;
@@ -133,6 +135,52 @@ public:
 			.skip_unhandled_events = false
 		};
 		ESP_ERROR_CHECK(esp_timer_create(&timer_config, &_timer_handle));
+
+		ledc_timer_config_t pwm_timer_config = {
+			.speed_mode      = LEDC_HIGH_SPEED_MODE,
+			.duty_resolution = static_cast<ledc_timer_bit_t>(PWM_RESOLUTION),
+			.timer_num       = PWM_TIMER_SRC,
+			.freq_hz         = PWM_FREQ_Hz,
+			.clk_cfg         = LEDC_AUTO_CLK,
+			.deconfigure     = false
+		};
+		ESP_ERROR_CHECK(ledc_timer_config(&pwm_timer_config));
+
+		ledc_channel_config_t channelA_config = { // CHANNEL A ###########
+			.gpio_num   = A_PWM_OUT_GPIO,
+			.speed_mode = LEDC_HIGH_SPEED_MODE,
+			.channel    = A_PWM_CHANNEL,
+			.intr_type  = LEDC_INTR_DISABLE,
+			.timer_sel  = PWM_TIMER_SRC,
+			.duty       = 0x0F,
+			.hpoint     = 0,
+			.flags = {.output_invert = 0}
+		};
+		ESP_ERROR_CHECK(ledc_channel_config(&channelA_config));
+		ledc_channel_config_t channelB_config = { // CHANNEL B ###########
+			.gpio_num   = B_PWM_OUT_GPIO,
+			.speed_mode = LEDC_HIGH_SPEED_MODE,
+			.channel    = B_PWM_CHANNEL,
+			.intr_type  = LEDC_INTR_DISABLE,
+			.timer_sel  = PWM_TIMER_SRC,
+			.duty       = 0x0F,
+			.hpoint     = 0,
+			.flags = {.output_invert = 0}
+		};
+		ESP_ERROR_CHECK(ledc_channel_config(&channelB_config));
+		ledc_channel_config_t channelC_config = { // CHANNEL C ###########
+			.gpio_num   = C_PWM_OUT_GPIO,
+			.speed_mode = LEDC_HIGH_SPEED_MODE,
+			.channel    = C_PWM_CHANNEL,
+			.intr_type  = LEDC_INTR_DISABLE,
+			.timer_sel  = PWM_TIMER_SRC,
+			.duty       = 0x0F,
+			.hpoint     = 0,
+			.flags = {.output_invert = 0}
+		};
+		ESP_ERROR_CHECK(ledc_channel_config(&channelC_config));
+
+		ESP_ERROR_CHECK(ledc_fade_func_install(0));
 	}
 
 private:

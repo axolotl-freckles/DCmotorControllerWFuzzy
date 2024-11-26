@@ -89,17 +89,6 @@ void app_main(void)
 	if (set_adc(&adc0_handle, ADC_UNIT_1, static_cast<adc_bitwidth_t>(ADC_BITWIDTH), ADC_CHANNEL_0))
 		return;
 
-	if (
-		innit_pwm (
-			PWM_OUT_GPIO, PWM_CHANNEL, LEDC_TIMER_1,
-			20000, (ledc_timer_bit_t)PWM_RESOLUTION,
-			0x0F, 0
-		).esp_err
-	)
-	{
-		return;
-	}
-
 	printf("Configurando Interrupcion GPIO\n");
 	if (gpio_install_isr_service(0))
 		return;
@@ -142,7 +131,7 @@ void app_main(void)
 	);
 	dataProcessTask.start();
 	ACControllerTask controllerTask(
-		"AC Controller Task", 1000, 2,
+		"AC Controller Task", 1024, 2,
 		data_out_q, channels, SAMPLE_TIME_ms
 	);
 	UART uartComm(

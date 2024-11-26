@@ -18,8 +18,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 
-// #include "driver/uart.h"
-
 #include "esp_mac.h"
 
 #include "CommProtocol.hpp"
@@ -47,7 +45,7 @@ public:
 
 			// uart_write_bytes(_uart_num, buffer, std::strlen(buffer));
 			_communicationProtocol->transmit(buffer, std::strlen(buffer));
-			xTaskDelayUntil(&previousWakeTime, SAMPLE_TIME_ms / portTICK_PERIOD_MS);
+			xTaskDelayUntil(&previousWakeTime, SAMPLE_TIME_ms * 5 / portTICK_PERIOD_MS);
 		}
 	}
 

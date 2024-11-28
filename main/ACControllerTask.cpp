@@ -1,12 +1,12 @@
 /**
  * @file ACControllerTask.cpp
  * @author your name (you@domain.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2024-11-22
- * 
+ *
  * @copyright Copyright (c) 2024
- * 
+ *
  */
 #ifndef AC_CONTROLLER_TASK_CPP
 #define AC_CONTROLLER_TASK_CPP
@@ -34,7 +34,7 @@ constexpr float OUT_MAX = 0.95f;
 /**
  * @brief It isn't recommended to reduce the sampling time below 10ms with the
  * FreeRTOS task scheduler. A hardware timer is used instead.
- * 
+ *
  * @param args The queue handler for the stator flux angular speed.
  */
 void IRAM_ATTR pwm_output_handler(void* args) {
@@ -48,7 +48,7 @@ void IRAM_ATTR pwm_output_handler(void* args) {
 	phase_A_theta += angular_speed*PWM_SAMPLE_TIMEs;
 	if (phase_A_theta > M_TAU) phase_A_theta -= M_TAU;
 
-	float phase_A = std::clamp((sin(phase_A_theta)+1)/2,           OUT_MIN, OUT_MAX);
+	float phase_A = std::clamp((sin(phase_A_theta        )+1)/2, OUT_MIN, OUT_MAX);
 	float phase_B = std::clamp((sin(phase_A_theta+M_TAU/3)+1)/2, OUT_MIN, OUT_MAX);
 	float phase_C = std::clamp((sin(phase_A_theta-M_TAU/3)+1)/2, OUT_MIN, OUT_MAX);
 
@@ -62,6 +62,7 @@ public:
 	static constexpr ledc_timer_t PWM_TIMER_SRC = LEDC_TIMER_1;
 	static constexpr int   PWM_FREQ_Hz    = 20000;
 	static constexpr float SINE_DISP_MULT = 30.0f;
+
 	void taskFunction() override {
 		TickType_t _last_time_awake = xTaskGetTickCount();
 		Data_out input_data;
@@ -125,7 +126,7 @@ public:
 	{
 		for (int i=0; i<N_TELEMETRY_CHANNELS; i++)
 			_telemetry_channels[i] = telemetry_channels[i];
-		
+
 		_fluxAngularSpeed = xQueueCreate(1, sizeof(float));
 		esp_timer_create_args_t timer_config = {
 			.callback = pwm_output_handler,

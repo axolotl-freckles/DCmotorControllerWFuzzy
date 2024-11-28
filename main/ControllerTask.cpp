@@ -28,7 +28,6 @@
 #include "pid.hpp"
 #include "pid.cpp"
 #include "Filters.hpp"
-#include "k_values.h"
 #include "pwm.h"
 
 using namespace std::chrono;

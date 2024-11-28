@@ -16,7 +16,6 @@
 #include "Fuzzyficator.cpp"
 #include "TakagiTsugenoController.hpp"
 #include "TakagiTsugenoController.cpp"
-#include "DCmotor_ControlLaw.cpp"
 #include "DataProcessTask.cpp"
 #include "ACControllerTask.cpp"
 #include "Telemetry.cpp"
@@ -93,7 +92,7 @@ void app_main(void)
 	if (gpio_install_isr_service(0))
 		return;
 	// ESP_ERROR_CHECK(gpio_install_isr_service(0));
-	
+
 	if (gpio_isr_handler_add((gpio_num_t)ENCODER_GPIO, count_encoder, NULL))
 		return;
 
@@ -110,7 +109,7 @@ void app_main(void)
 	printf("Habilitando interrupcion\n");
 	if (gpio_intr_enable((gpio_num_t)ENCODER_GPIO) != ESP_OK)
 		return;
-	
+
 	timer_args tmr_args = {
 		.adc_handle = adc0_handle
 	};

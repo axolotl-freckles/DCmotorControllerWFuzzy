@@ -35,7 +35,7 @@ public:
 	// static constexpr float REF_MIN = 30.0f;
 	// static constexpr float REF_MAX = 60.0f;
 	static constexpr float REF_MIN =  1.0f;
-	static constexpr float REF_MAX = 30.0f;
+	static constexpr float REF_MAX = 60.0f;
 	static constexpr float REF_CONV_FACTOR = (REF_MAX-REF_MIN)/ADC_MAX;
 
 	// Motor speed in rad/s

@@ -75,7 +75,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 		ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
 
 		// Inicia mDNS para descubrir al maestro
-		xTaskCreate(mdns_discovery_task, "mdns_discovery", 2048, NULL, 5, NULL);
+		xTaskCreate(mdns_discovery_task, "mdns_discovery", 2080, NULL, 5, NULL);
 	}
 }
 
@@ -167,7 +167,7 @@ static bool connect_to_master(const char *ip, int port) {
 	xEventGroupSetBits(sync_event_group, BIT_CONNECTED_TO_MASTER);
 
 	// Inicia la tarea para recibir datos del maestro
-	xTaskCreate(slave_receive_task, "slave_receive", 4096, (void *)sock, 5, NULL);
+	xTaskCreate(slave_receive_task, "slave_receive", 3072, (void *)sock, 5, NULL);
 	return true;
 }
 

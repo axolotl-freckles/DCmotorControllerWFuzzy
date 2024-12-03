@@ -137,7 +137,7 @@ void app_main(void)
 	// 	data_out_q, channels, SAMPLE_TIME_ms
 	// );
 	ACControllerSlave controllerTask(
-		"AC Controller Slave", 1024, 2,
+		"AC Controller Slave", 2048, 2,
 		fluxAngularSpeed_q, data_out_q, channels, SAMPLE_TIME_ms
 	);
 	// UART uartComm(

@@ -17,8 +17,10 @@
 #include "TakagiTsugenoController.hpp"
 #include "TakagiTsugenoController.cpp"
 #include "DataProcessTask.cpp"
-#include "ACControllerTask.cpp"
+// #include "ACControllerTask.cpp"
+#include "ACControllerSlave.cpp"
 #include "Telemetry.cpp"
+#include "wifi.cpp"
 
 extern "C" {
 
@@ -32,6 +34,7 @@ esp_err_t set_adc(
 QueueHandle_t motor_count_q = xQueueCreate(1, sizeof(int32_t));
 QueueHandle_t raw_data_q    = xQueueCreate(1, sizeof(Raw_data));
 QueueHandle_t data_out_q    = xQueueCreate(1, sizeof(Data_out));
+QueueHandle_t fluxAngularSpeed_q = xQueueCreate(1, sizeof(float));
 
 QueueHandle_t tel_ref_speed_q   = xQueueCreate(1, sizeof(float));
 QueueHandle_t tel_motor_speed_q = xQueueCreate(1, sizeof(float));
@@ -129,23 +132,29 @@ void app_main(void)
 		raw_data_q, data_out_q, SAMPLE_TIME_ms
 	);
 	dataProcessTask.start();
-	ACControllerTask controllerTask(
-		"AC Controller Task", 1024, 2,
-		data_out_q, channels, SAMPLE_TIME_ms
+	// ACControllerTask controllerTask(
+	// 	"AC Controller Task", 1024, 2,
+	// 	data_out_q, channels, SAMPLE_TIME_ms
+	// );
+	ACControllerSlave controllerTask(
+		"AC Controller Slave", 1024, 2,
+		fluxAngularSpeed_q, data_out_q, channels, SAMPLE_TIME_ms
 	);
-	UART uartComm(
-		UART_NUM_2, TELEMETRY_TX_PIN, UART_BAUD_RATE, UART_PARITY, UART_STOP_BITS
-	);
-	Telemetry<N_TELEMETRY_CHANNELS> telemetryTask(
-		"Telemetry Task", 2048,
-		&uartComm,
-		channels
-	);
+	// UART uartComm(
+	// 	UART_NUM_2, TELEMETRY_TX_PIN, UART_BAUD_RATE, UART_PARITY, UART_STOP_BITS
+	// );
+	// Telemetry<N_TELEMETRY_CHANNELS> telemetryTask(
+	// 	"Telemetry Task", 2080,
+	// 	&uartComm,
+	// 	channels
+	// );
 
 	(void)printf("\n\n");
 
 	controllerTask.start();
-	telemetryTask.start();
+	// telemetryTask.start();
+
+	innit_slave(fluxAngularSpeed_q);
 	while (true) {
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}

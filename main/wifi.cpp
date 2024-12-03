@@ -50,16 +50,16 @@ static EventGroupHandle_t sync_event_group;
 static constexpr int BIT_CONNECTED_TO_MASTER = BIT0; // Indica conexión al maestro
 static constexpr int BIT_APPLY_CONFIG = 1<<1;
 
-static QueueHandle_t spwm_config_q   = xQueueCreate(1, sizeof(spwm_config_t));
+// static QueueHandle_t spwm_config_q   = xQueueCreate(1, sizeof(spwm_config_t));
 static QueueHandle_t config_params_q = xQueueCreate(1, sizeof(spwm_config_t));
 
 static esp_timer_handle_t config_apply_timer_handle = nullptr;
 
-bool connect_to_master(const char *ip, int port);
-void mdns_discovery_task(void *pvParameters);
-void slave_receive_task(void *pvParameters);
-void config_apply_h(void *params);
-inline void update_config(const char* config_JSON, int json_len);
+static bool connect_to_master(const char *ip, int port);
+static void mdns_discovery_task(void *pvParameters);
+static void slave_receive_task(void *pvParameters);
+static void config_apply_h(void *params);
+static inline void update_config(const char* config_JSON, int json_len);
 
 // Función para manejar eventos Wi-Fi
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
@@ -75,7 +75,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 		ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
 
 		// Inicia mDNS para descubrir al maestro
-		xTaskCreate(mdns_discovery_task, "mdns_discovery", 4096, NULL, 5, NULL);
+		xTaskCreate(mdns_discovery_task, "mdns_discovery", 2048, NULL, 5, NULL);
 	}
 }
 
@@ -115,7 +115,8 @@ static void wifi_init(void) {
 	esp_wifi_start();
 }
 
-void innit_slave(void) {
+void innit_slave(QueueHandle_t spwm_config_q) {
+	ESP_LOGI(TAG, "Starting device as slave");
 	esp_err_t ret = nvs_flash_init();
 	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
 		ESP_ERROR_CHECK(nvs_flash_erase());
@@ -127,7 +128,7 @@ void innit_slave(void) {
 
 	esp_timer_create_args_t oneshot_timer = {
 		.callback = config_apply_h,
-		.arg      = NULL,
+		.arg      = spwm_config_q,
 		.dispatch_method = ESP_TIMER_TASK,
 		.name = "Config. Apply",
 		.skip_unhandled_events = false
@@ -138,7 +139,7 @@ void innit_slave(void) {
 		.phase = A
 	};
 	xQueueOverwrite(config_params_q, &default_config);
-	xQueueOverwrite(spwm_config_q, &default_config);
+
 	wifi_init();  // Inicializar Wi-Fi
 }
 
@@ -260,10 +261,11 @@ static void slave_receive_task(void *pvParameters) {
 }
 
 static void config_apply_h(void *params) {
+	QueueHandle_t spwm_config_q = (QueueHandle_t)params;
 	spwm_config_t config;
-	xQueuePeek(config_params_q, &config, 1);
-	xQueueOverwrite(spwm_config_q, &config);
-	ESP_LOGI("UPDATE", "w:%f", config.angular_speed);
+	xQueuePeekFromISR(config_params_q, &config);
+	xQueueOverwriteFromISR(spwm_config_q, &(config.angular_speed), NULL);
+	// ESP_LOGI("UPDATE", "w:%f", config.angular_speed);
 }
 
 static inline void update_config(const char* config_JSON, int json_len) {

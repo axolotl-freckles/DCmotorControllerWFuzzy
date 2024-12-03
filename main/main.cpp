@@ -91,7 +91,7 @@ void app_main(void)
 	if (set_adc(&adc0_handle, ADC_UNIT_1, static_cast<adc_bitwidth_t>(ADC_BITWIDTH), ADC_CHANNEL_0))
 		return;
 
-	printf("Configurando Interrupcion GPIO\n");
+	/*printf("Configurando Interrupcion GPIO\n");
 	if (gpio_install_isr_service(0))
 		return;
 	// ESP_ERROR_CHECK(gpio_install_isr_service(0));
@@ -131,7 +131,7 @@ void app_main(void)
 		"Data process Task", 800, 2,
 		raw_data_q, data_out_q, SAMPLE_TIME_ms
 	);
-	dataProcessTask.start();
+	dataProcessTask.start();*/
 	// ACControllerTask controllerTask(
 	// 	"AC Controller Task", 1024, 2,
 	// 	data_out_q, channels, SAMPLE_TIME_ms

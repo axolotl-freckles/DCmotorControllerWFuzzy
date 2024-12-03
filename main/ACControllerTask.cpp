@@ -28,8 +28,8 @@ using namespace std::chrono;
 constexpr int64_t PWM_SAMPLE_TIMEus = 200;
 constexpr float   PWM_SAMPLE_TIMEs  = PWM_SAMPLE_TIMEus*1e-6;
 
-constexpr float OUT_MIN = 0.05f;
-constexpr float OUT_MAX = 0.95f;
+constexpr float OUT_MIN = 0.02f;
+constexpr float OUT_MAX = 0.98f;
 
 /**
  * @brief It isn't recommended to reduce the sampling time below 10ms with the
@@ -69,7 +69,7 @@ public:
 
 		LowPass inputFilter(0.5, SAMPLE_TIME_s);
 		Integrator fluxAngularPosition(SAMPLE_TIME_s);
-		float angular_speed = M_TAU;
+		float angular_speed    = M_TAU;
 		float setted_frecuency = 0.0f;
 
 		xQueueOverwrite(_fluxAngularSpeed, &angular_speed);
@@ -116,9 +116,7 @@ public:
 		QueueHandle_t data_q,
 		QueueHandle_t telemetry_channels[],
 		TickType_t period_ms
-	)
-	:
-		Task(name, stack_size, prio),
+	) : Task(name, stack_size, prio),
 		_data_q(data_q),
 		_telemetry_data{0.0f},
 		_period_tks(period_ms / portTICK_PERIOD_MS),

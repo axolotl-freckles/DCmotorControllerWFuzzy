@@ -32,8 +32,6 @@ typedef struct {
 class DataProcessTask : public Task {
 public:
 	// Reference units in Hz
-	// static constexpr float REF_MIN = 30.0f;
-	// static constexpr float REF_MAX = 60.0f;
 	static constexpr float REF_MIN =  1.0f;
 	static constexpr float REF_MAX = 60.0f;
 	static constexpr float REF_CONV_FACTOR = (REF_MAX-REF_MIN)/ADC_MAX;
@@ -56,7 +54,7 @@ public:
 			data_out.set_point   = (float)raw_data.adc_read*REF_CONV_FACTOR + REF_MIN;
 			motor_count_diff     = raw_data.motor_count - prev_motor_count;
 			data_out.motor_speed = (float)(motor_count_diff)*MOTOR_SPEED_CONV_FACTOR;
-			prev_motor_count = raw_data.motor_count;
+			prev_motor_count     = raw_data.motor_count;
 
 			xQueueOverwrite(_out_data_q, &data_out);
 			vTaskDelayUntil(&_last_time_awake, _period_tks);
@@ -67,9 +65,7 @@ public:
 		const char* name, uint32_t stack_size, UBaseType_t prio,
 		QueueHandle_t raw_data_q, QueueHandle_t out_data_q,
 		TickType_t period_ms
-	)
-	:
-		Task(name, stack_size, prio),
+	) : Task(name, stack_size, prio),
 		_raw_data_q(raw_data_q), _out_data_q(out_data_q),
 		_period_tks(period_ms / portTICK_PERIOD_MS)
 	{ }
@@ -77,7 +73,7 @@ public:
 private:
 	const QueueHandle_t _raw_data_q;
 	const QueueHandle_t _out_data_q;
-	const TickType_t _period_tks;
+	const TickType_t    _period_tks;
 };
 
 #endif

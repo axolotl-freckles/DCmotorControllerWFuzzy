@@ -1,146 +1,122 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "esp_wifi.h"
-#include "esp_event.h"
-#include "nvs_flash.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <stdbool.h>
 #include "esp_log.h"
-#include "esp_http_client.h"
-#include "cJSON.h"
 
-// Configuración de bits de evento
-#define ACK_PHASE_A (1 << 0)
-#define ACK_PHASE_B (1 << 1)
-#define ACK_PHASE_C (1 << 2)
-#define ALL_PHASES_ACK (ACK_PHASE_A | ACK_PHASE_B | ACK_PHASE_C)
+#define TAG "SocketMaster"
 
-static const char *TAG = "MotorControl";
-static EventGroupHandle_t ack_event_group;
+// Array to track assigned phases
+bool phases_assigned[3] = {false, false, false}; // Indices: 0 = A, 1 = B, 2 = C
 
-// Función para enviar JSON al slave
-void send_json_to_slave(const char *slave_ip, const char *phase, const char *frequency) {
-    // Construir JSON
-    cJSON *json = cJSON_CreateObject();
-    cJSON_AddStringToObject(json, "frequency", frequency);
-    cJSON_AddStringToObject(json, "phase", phase);
-    char *json_string = cJSON_Print(json);
-
-    // Configurar cliente HTTP
-    esp_http_client_config_t config = {
-        .url = slave_ip,
-        .method = HTTP_METHOD_POST,
-    };
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    esp_http_client_set_header(client, "Content-Type", "application/json");
-    esp_http_client_set_post_field(client, json_string, strlen(json_string));
-
-    // Enviar solicitud
-    esp_err_t err = esp_http_client_perform(client);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "JSON enviado a %s: %s", slave_ip, json_string);
-
-        // Simula recibir un ACK
-        if (strcmp(phase, "A") == 0) {
-            xEventGroupSetBits(ack_event_group, ACK_PHASE_A);
-        } else if (strcmp(phase, "B") == 0) {
-            xEventGroupSetBits(ack_event_group, ACK_PHASE_B);
-        } else if (strcmp(phase, "C") == 0) {
-            xEventGroupSetBits(ack_event_group, ACK_PHASE_C);
-        }
-    } else {
-        ESP_LOGE(TAG, "Error enviando JSON a %s: %s", slave_ip, esp_err_to_name(err));
+// Function to initialize communication with a slave
+int initialize_socket(const char *ip, int port) {
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "Failed to create socket");
+        return -1;
     }
 
-    // Limpiar
-    esp_http_client_cleanup(client);
-    cJSON_Delete(json);
-    free(json_string);
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    if (inet_pton(AF_INET, ip, &server_addr.sin_addr) <= 0) {
+        ESP_LOGE(TAG, "Invalid IP address: %s", ip);
+        close(sock);
+        return -1;
+    }
+
+    if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        ESP_LOGE(TAG, "Failed to connect to slave at %s:%d", ip, port);
+        close(sock);
+        return -1;
+    }
+
+    ESP_LOGI(TAG, "Connected to slave at %s:%d", ip, port);
+    return sock;
 }
 
-// Tarea para configuración 
-void configure_motor_task(void *arg) {
+// Function to send data to the slave
+void send_data_to_slave(int sock, const char *data) {
+    if (send(sock, data, strlen(data), 0) < 0) {
+        ESP_LOGE(TAG, "Failed to send data");
+    } else {
+        ESP_LOGI(TAG, "Data sent to slave: %s", data);
+    }
+}
+
+// Function to close the socket
+void close_socket(int sock) {
+    close(sock);
+    ESP_LOGI(TAG, "Connection closed");
+}
+
+// Main function to configure motor
+void configure_motor_with_sockets() {
     char slave_ip[64];
     char phase[2];
     char frequency[16];
     int freq_value;
 
-    // Solicitar frecuencia
+    // Request frequency
     while (true) {
-        printf("Ingrese la frecuencia para el motor (30-60 Hz): ");
+        printf("Enter motor frequency (30-60 Hz): ");
         fgets(frequency, sizeof(frequency), stdin);
         freq_value = atoi(frequency);
         if (freq_value >= 30 && freq_value <= 60) {
             break;
         }
-        printf("Frecuencia inválida. Debe estar entre 30 y 60 Hz.\n");
+        printf("Invalid frequency. It must be between 30 and 60 Hz.\n");
     }
 
     snprintf(frequency, sizeof(frequency), "%d", freq_value);
 
-    // Configurar cada fase
+    // Configure each phase
     for (int i = 0; i < 3; i++) {
-        printf("Ingrese la IP del slave para la fase %c: ", 'A' + i);
+        while (true) {
+            printf("Enter the phase for the slave (A, B, C): ");
+            fgets(phase, sizeof(phase), stdin);
+            phase[strcspn(phase, "\n")] = '\0'; // Remove newline character
+
+            // Validate that the phase is unique
+            if (strcmp(phase, "A") == 0 && !phases_assigned[0]) {
+                phases_assigned[0] = true;
+                break;
+            } else if (strcmp(phase, "B") == 0 && !phases_assigned[1]) {
+                phases_assigned[1] = true;
+                break;
+            } else if (strcmp(phase, "C") == 0 && !phases_assigned[2]) {
+                phases_assigned[2] = true;
+                break;
+            } else {
+                printf("Invalid or duplicate phase. Try again.\n");
+            }
+        }
+
+        printf("Enter the IP address of the slave for phase %s: ", phase);
         fgets(slave_ip, sizeof(slave_ip), stdin);
-        slave_ip[strcspn(slave_ip, "\n")] = '\0'; // Eliminar nueva línea
+        slave_ip[strcspn(slave_ip, "\n")] = '\0'; // Remove newline character
 
-        snprintf(phase, sizeof(phase), "%c", 'A' + i);
+        // Create the JSON
+        char json_data[128];
+        snprintf(json_data, sizeof(json_data), "{\"frequency\":\"%s\", \"phase\":\"%s\"}", frequency, phase);
 
-        // Enviar JSON al slave
-        send_json_to_slave(slave_ip, phase, frequency);
-    }
-
-    vTaskDelete(NULL);
-}
-
-// Tarea para monitorear sincronización de fases
-void sync_task(void *arg) {
-    while (true) {
-        EventBits_t bits = xEventGroupWaitBits(ack_event_group, ALL_PHASES_ACK, pdTRUE, pdTRUE, portMAX_DELAY);
-        if ((bits & ALL_PHASES_ACK) == ALL_PHASES_ACK) {
-            ESP_LOGI(TAG, "Todas las fases sincronizadas. Motor listo para arrancar.");
-            // Activar señal de sincronización
-            break;
+        // Initialize socket and send data
+        int sock = initialize_socket(slave_ip, 12345); // Fixed port: 12345
+        if (sock >= 0) {
+            send_data_to_slave(sock, json_data);
+            close_socket(sock);
         }
     }
-    vTaskDelete(NULL);
 }
 
-// Inicializar WiFi
-void wifi_init() {
-    ESP_ERROR_CHECK(nvs_flash_init());
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_ap();
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    wifi_config_t wifi_ap_config = {
-        .ap = {
-            .ssid = "ESP32_AP",
-            .password = "AP_Password",
-            .ssid_len = strlen("ESP32_AP"),
-            .max_connection = 3,
-            .authmode = WIFI_AUTH_WPA2_PSK,
-        },
-    };
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_ap_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    ESP_LOGI(TAG, "Punto de acceso iniciado: SSID=ESP32_AP, Password=AP_Password");
-}
-
+// Main application entry point
 void app_main(void) {
-    ack_event_group = xEventGroupCreate();
-
-    wifi_init();
-
-    // Crear tareas para configuración y sincronización
-    xTaskCreate(configure_motor_task, "Configure Motor Task", 4096, NULL, 5, NULL);
-    xTaskCreate(sync_task, "Sync Task", 2048, NULL, 5, NULL);
+    printf("Starting three-phase motor configuration...\n");
+    configure_motor_with_sockets();
+    printf("Motor configuration completed.\n");
 }

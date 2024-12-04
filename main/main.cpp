@@ -26,8 +26,8 @@
 #elif CONFIG_AC_CONTROLLER_ROLE_MASTER
 #elif CONFIG_AC_CONTROLLER_ROLE_SLAVE
 	#include "slaveWifi.cpp"
+	#include "ACControllerSlave.cpp"
 #endif
-#include "ACControllerSlave.cpp"
 #include "Telemetry.cpp"
 
 extern "C" {

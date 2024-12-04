@@ -25,7 +25,7 @@
 	#include "ACControllerTask.cpp"
 #elif CONFIG_AC_CONTROLLER_ROLE_MASTER
 #elif CONFIG_AC_CONTROLLER_ROLE_SLAVE
-	#include "wifi.cpp"
+	#include "slaveWifi.cpp"
 #endif
 #include "ACControllerSlave.cpp"
 #include "Telemetry.cpp"

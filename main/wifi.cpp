@@ -265,7 +265,7 @@ static void config_apply_h(void *params) {
 	spwm_config_t config;
 	xQueuePeekFromISR(config_params_q, &config);
 	xQueueOverwriteFromISR(spwm_config_q, &(config.angular_speed), NULL);
-	// ESP_LOGI("UPDATE", "w:%f", config.angular_speed);
+	ESP_LOGI("UPDATE", "w:%f", config.angular_speed);
 }
 
 static inline void update_config(const char* config_JSON, int json_len) {

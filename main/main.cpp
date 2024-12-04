@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#include "sdkconfig.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -17,10 +19,16 @@
 #include "TakagiTsugenoController.hpp"
 #include "TakagiTsugenoController.cpp"
 #include "DataProcessTask.cpp"
-// #include "ACControllerTask.cpp"
+#ifdef CONFIG_CONTROLLER_TYPE_DC
+	#include "ControllerTask.cpp"
+#elif CONFIG_AC_CONTROLLER_ROLE_COMPLETE
+	#include "ACControllerTask.cpp"
+#elif CONFIG_AC_CONTROLLER_ROLE_MASTER
+#elif CONFIG_AC_CONTROLLER_ROLE_SLAVE
+	#include "wifi.cpp"
+#endif
 #include "ACControllerSlave.cpp"
 #include "Telemetry.cpp"
-#include "wifi.cpp"
 
 extern "C" {
 
@@ -87,11 +95,12 @@ void count_encoder(void* args) {
 
 void app_main(void)
 {
+#ifndef CONFIG_AC_CONTROLLER_ROLE_SLAVE
 	adc_oneshot_unit_handle_t adc0_handle;
 	if (set_adc(&adc0_handle, ADC_UNIT_1, static_cast<adc_bitwidth_t>(ADC_BITWIDTH), ADC_CHANNEL_0))
 		return;
 
-	/*printf("Configurando Interrupcion GPIO\n");
+	printf("Configurando Interrupcion GPIO\n");
 	if (gpio_install_isr_service(0))
 		return;
 	// ESP_ERROR_CHECK(gpio_install_isr_service(0));
@@ -131,30 +140,42 @@ void app_main(void)
 		"Data process Task", 800, 2,
 		raw_data_q, data_out_q, SAMPLE_TIME_ms
 	);
-	dataProcessTask.start();*/
-	// ACControllerTask controllerTask(
-	// 	"AC Controller Task", 1024, 2,
-	// 	data_out_q, channels, SAMPLE_TIME_ms
-	// );
-	ACControllerSlave controllerTask(
-		"AC Controller Slave", 2048, 2,
-		fluxAngularSpeed_q, data_out_q, channels, SAMPLE_TIME_ms
+	dataProcessTask.start();
+#ifdef CONFIG_CONTROLLER_TYPE_DC
+	// ############################################ DC CONTROLLER
+#elif CONFIG_AC_CONTROLLER_ROLE_COMPLETE
+	// ############################################ COMPLETE AC CONTROLLER
+	ACControllerTask controllerTask(
+		"AC Controller Task", 1024, 2,
+		data_out_q, channels, SAMPLE_TIME_ms
 	);
-	// UART uartComm(
-	// 	UART_NUM_2, TELEMETRY_TX_PIN, UART_BAUD_RATE, UART_PARITY, UART_STOP_BITS
-	// );
-	// Telemetry<N_TELEMETRY_CHANNELS> telemetryTask(
-	// 	"Telemetry Task", 2080,
-	// 	&uartComm,
-	// 	channels
-	// );
+#elif CONFIG_AC_CONTROLLER_ROLE_MASTER
+	// ############################################ MASTER AC CONTROLLER
+#endif
+	UART uartComm(
+		UART_NUM_2, TELEMETRY_TX_PIN, UART_BAUD_RATE, UART_PARITY, UART_STOP_BITS
+	);
+	Telemetry<N_TELEMETRY_CHANNELS> telemetryTask(
+		"Telemetry Task", 2080,
+		&uartComm,
+		channels
+	);
+#else
+	ACControllerSlave controllerTask(
+		"AC Controller Slave", 512, 2,
+		fluxAngularSpeed_q
+	);
+#endif
 
 	(void)printf("\n\n");
 
 	controllerTask.start();
-	// telemetryTask.start();
-
+#ifndef CONFIG_AC_CONTROLLER_ROLE_SLAVE
+	telemetryTask.start();
+#else
 	innit_slave(fluxAngularSpeed_q);
+#endif
+
 	while (true) {
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}

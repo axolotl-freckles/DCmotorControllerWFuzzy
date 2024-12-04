@@ -62,66 +62,26 @@ public:
 	static constexpr float SINE_DISP_MULT = 30.0f;
 
 	void taskFunction() override {
-		TickType_t _last_time_awake = xTaskGetTickCount();
-		Data_out input_data;
-
-		LowPass inputFilter(0.5, SAMPLE_TIME_s);
 		Integrator fluxAngularPosition(SAMPLE_TIME_s);
 		float angular_speed    = 0.0f;
 
 		xQueueOverwrite(_fluxAngularSpeed_q, &angular_speed);
 		ESP_ERROR_CHECK(esp_timer_start_periodic(_timer_handle, PWM_SAMPLE_TIMEus));
 
-		high_resolution_clock::time_point task_st;
-		high_resolution_clock::time_point task_en;
-
 		ESP_LOGI(DEBUG_TAG, "Initilizing task");
-
+		
 		while (true) {
-			xQueueReceive(_data_q, &input_data, _period_tks);
-			xQueueReceive(_fluxAngularSpeed_q, &angular_speed, _period_tks);
-
-			task_st = high_resolution_clock::now();
-
-			_telemetry_data[0] = input_data.motor_speed;
-			_telemetry_data[1] = angular_speed;
-
-			float phase_A = fluxAngularPosition(angular_speed);
-			float phase_B = phase_A + M_TAU/3;
-			float phase_C = phase_A - M_TAU/3;
-			_telemetry_data[2] = sin(phase_A)*SINE_DISP_MULT;
-			_telemetry_data[3] = sin(phase_B)*SINE_DISP_MULT;
-			_telemetry_data[4] = sin(phase_C)*SINE_DISP_MULT;
-
-			if (fluxAngularPosition.integralAcumulator() > M_TAU) {
-				fluxAngularPosition.setIntegralAcumulator(
-					fluxAngularPosition.integralAcumulator()-M_TAU
-				);
-			}
-
-			task_en = high_resolution_clock::now();
-			_telemetry_data[N_TELEMETRY_CHANNELS-1] = duration_cast<microseconds>(task_en-task_st).count();
-			for (int i=0; i<N_TELEMETRY_CHANNELS; i++) {
-				xQueueOverwrite(_telemetry_channels[i], _telemetry_data+i);
-			}
-			vTaskDelayUntil(&_last_time_awake, _period_tks);
+			vTaskSuspend(NULL);
 		}
 	}
 
 	ACControllerSlave(
 		const char* name, uint32_t stack_size, UBaseType_t prio,
-		QueueHandle_t fluxAngularSpeed, QueueHandle_t data_q,
-		QueueHandle_t telemetry_channels[],
-		TickType_t period_ms
+		QueueHandle_t fluxAngularSpeed
 	) : Task(name, stack_size, prio),
-		_telemetry_data{0.0f},
-		_period_tks(period_ms / portTICK_PERIOD_MS),
-		_fluxAngularSpeed_q(fluxAngularSpeed), _data_q(data_q),
+		_fluxAngularSpeed_q(fluxAngularSpeed),
 		_timer_handle(nullptr)
 	{
-		for (int i=0; i<N_TELEMETRY_CHANNELS; i++)
-			_telemetry_channels[i] = telemetry_channels[i];
-
 		esp_timer_create_args_t timer_config = {
 			.callback = pwm_output_handler,
 			.arg      = (void*)_fluxAngularSpeed_q,
@@ -159,12 +119,7 @@ public:
 	}
 
 private:
-	QueueHandle_t _telemetry_channels[N_TELEMETRY_CHANNELS];
-	float _telemetry_data[N_TELEMETRY_CHANNELS];
-	const TickType_t _period_tks;
-
 	QueueHandle_t      _fluxAngularSpeed_q;
-	QueueHandle_t      _data_q;
 	esp_timer_handle_t _timer_handle;
 };
 

@@ -7,11 +7,57 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include "esp_log.h"
+#include "esp_wifi.h"
+#include "mdns.h"
+#include "esp_event.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+#include "esp_timer.h"
 
 #define TAG "SocketMaster"
+#define MAX_SLAVES 3
+#define SYNC_SIGNAL "SYNC_SIGNAL"
+
+// Event group bits
+#define SLAVE1_CONNECTED_BIT (1 << 0)
+#define SLAVE2_CONNECTED_BIT (1 << 1)
+#define SLAVE3_CONNECTED_BIT (1 << 2)
+#define ALL_SLAVES_CONNECTED (SLAVE1_CONNECTED_BIT | SLAVE2_CONNECTED_BIT | SLAVE3_CONNECTED_BIT)
+
+EventGroupHandle_t event_group;
 
 // Array to track assigned phases
 bool phases_assigned[3] = {false, false, false}; // Indices: 0 = A, 1 = B, 2 = C
+
+// Array to track connected slaves
+char slave_ips[MAX_SLAVES][16];
+
+// Initialize Access Point
+void init_wifi_as_ap() {
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    wifi_config_t ap_config = {
+        .ap = {
+            .ssid = "ESP32_MASTER",
+            .password = "12345678",
+            .ssid_len = 0,
+            .channel = 1,
+            .max_connection = MAX_SLAVES,
+            .authmode = WIFI_AUTH_WPA2_PSK
+        },
+    };
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_LOGI(TAG, "Access Point iniciado con SSID: ESP32_MASTER");
+}
+
+// Initialize MDNS service
+void start_mdns_service() {
+    ESP_ERROR_CHECK(mdns_init());
+    ESP_ERROR_CHECK(mdns_hostname_set("esp32_master"));
+    ESP_LOGI(TAG, "MDNS iniciado con hostname: esp32_master");
+}
 
 // Function to initialize communication with a slave
 int initialize_socket(const char *ip, int port) {
@@ -49,6 +95,20 @@ void send_data_to_slave(int sock, const char *data) {
     }
 }
 
+// Function to receive ACK from slave
+bool receive_ack_from_slave(int sock) {
+    char buffer[64];
+    int len = recv(sock, buffer, sizeof(buffer) - 1, 0);
+    if (len > 0) {
+        buffer[len] = '\0';
+        ESP_LOGI(TAG, "ACK recibido: %s", buffer);
+        return strcmp(buffer, "ACK") == 0;
+    } else {
+        ESP_LOGE(TAG, "Error al recibir ACK");
+        return false;
+    }
+}
+
 // Function to close the socket
 void close_socket(int sock) {
     close(sock);
@@ -76,7 +136,7 @@ void configure_motor_with_sockets() {
     snprintf(frequency, sizeof(frequency), "%d", freq_value);
 
     // Configure each phase
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < MAX_SLAVES; i++) {
         while (true) {
             printf("Enter the phase for the slave (A, B, C): ");
             fgets(phase, sizeof(phase), stdin);
@@ -100,6 +160,7 @@ void configure_motor_with_sockets() {
         printf("Enter the IP address of the slave for phase %s: ", phase);
         fgets(slave_ip, sizeof(slave_ip), stdin);
         slave_ip[strcspn(slave_ip, "\n")] = '\0'; // Remove newline character
+        strncpy(slave_ips[i], slave_ip, sizeof(slave_ip));
 
         // Create the JSON
         char json_data[128];
@@ -109,6 +170,29 @@ void configure_motor_with_sockets() {
         int sock = initialize_socket(slave_ip, 12345); // Fixed port: 12345
         if (sock >= 0) {
             send_data_to_slave(sock, json_data);
+
+            // Wait for ACK
+            if (!receive_ack_from_slave(sock)) {
+                ESP_LOGE(TAG, "Failed to receive ACK from slave %s", slave_ip);
+                close_socket(sock);
+                return;
+            }
+            close_socket(sock);
+        }
+
+        // Set event group bit
+        xEventGroupSetBits(event_group, 1 << i);
+    }
+
+    // Wait for all slaves to be connected
+    xEventGroupWaitBits(event_group, ALL_SLAVES_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
+    ESP_LOGI(TAG, "All slaves are connected. Sending SYNC_SIGNAL...");
+
+    // Send SYNC_SIGNAL to all slaves
+    for (int i = 0; i < MAX_SLAVES; i++) {
+        int sock = initialize_socket(slave_ips[i], 12345);
+        if (sock >= 0) {
+            send_data_to_slave(sock, SYNC_SIGNAL);
             close_socket(sock);
         }
     }
@@ -117,6 +201,18 @@ void configure_motor_with_sockets() {
 // Main application entry point
 void app_main(void) {
     printf("Starting three-phase motor configuration...\n");
+
+    // Initialize Wi-Fi as Access Point
+    init_wifi_as_ap();
+
+    // Start MDNS service
+    start_mdns_service();
+
+    // Initialize event group
+    event_group = xEventGroupCreate();
+
+    // Configure motor
     configure_motor_with_sockets();
+
     printf("Motor configuration completed.\n");
 }

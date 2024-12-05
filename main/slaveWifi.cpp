@@ -14,21 +14,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "freertos/queue.h"
-#include "esp_timer.h"
-#include "esp_system.h"
-#include "esp_log.h"
-#include "nvs_flash.h"
-#include "esp_netif.h"
-#include "esp_event.h"
-#include "esp_wifi.h"
-#include "lwip/sockets.h"
-#include "sdkconfig.h"
-#include "mdns.h"
 
+#include "slaveWifi.hpp"
 #include "jsonParser.hpp"
 
 #define WIFI_SSID CONFIG_WIFI_SSID        // SSID de Wi-Fi configurado en menuconfig
@@ -37,13 +24,6 @@
 #define MDNS_SERVICE_TYPE "_spwm"         // Servicio mDNS del maestro
 
 static const char *TAG = "SLAVE_DEVICE";
-
-enum phase_t {A, B, C};
-
-struct spwm_config_t {
-	float angular_speed;
-	phase_t phase;
-};
 
 // Eventos para la sincronización
 static EventGroupHandle_t sync_event_group;
@@ -115,7 +95,7 @@ static void wifi_init(void) {
 	esp_wifi_start();
 }
 
-void innit_slave(QueueHandle_t spwm_config_q) {
+void innit_slave_wifi(QueueHandle_t spwm_config_q) {
 	ESP_LOGI(TAG, "Starting device as slave");
 	esp_err_t ret = nvs_flash_init();
 	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -264,8 +244,8 @@ static void config_apply_h(void *params) {
 	QueueHandle_t spwm_config_q = (QueueHandle_t)params;
 	spwm_config_t config;
 	xQueuePeekFromISR(config_params_q, &config);
-	xQueueOverwriteFromISR(spwm_config_q, &(config.angular_speed), NULL);
-	ESP_LOGI("UPDATE", "w:%f", config.angular_speed);
+	xQueueOverwriteFromISR(spwm_config_q, &config, NULL);
+	ESP_LOGI("UPDATE", "w:%.2f", config.angular_speed);
 }
 
 static inline void update_config(const char* config_JSON, int json_len) {

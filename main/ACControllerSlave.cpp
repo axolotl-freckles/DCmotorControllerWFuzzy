@@ -25,6 +25,7 @@ using namespace std::chrono;
 #include "pid.hpp"
 #include "pwm.h"
 #include "Filters.hpp"
+#include "slaveWifi.hpp"
 
 constexpr int64_t PWM_SAMPLE_TIMEus = 200;
 constexpr float   PWM_SAMPLE_TIMEs  = PWM_SAMPLE_TIMEus*1e-6;
@@ -40,87 +41,74 @@ static constexpr float OUT_MAX = 0.98f;
  * @param args The queue handler for the stator flux angular speed.
  */
 void IRAM_ATTR pwm_output_handler(void* args) {
-	static const QueueHandle_t fluxAngularSpeed = static_cast<QueueHandle_t>(args);
+	static const QueueHandle_t spwm_config_q = static_cast<QueueHandle_t>(args);
 	static float theta = 0.0f;
 
-	float angular_speed = M_TAU;
-	xQueuePeekFromISR(fluxAngularSpeed, &angular_speed);
+	spwm_config_t spwm_config;
+	xQueuePeekFromISR(spwm_config_q, &spwm_config);
 
 	// Inline integrator logic
-	theta += angular_speed*PWM_SAMPLE_TIMEs;
+	theta += spwm_config.angular_speed*PWM_SAMPLE_TIMEs;
 	if (theta > M_TAU) theta -= M_TAU;
+	switch (spwm_config.phase) {
+		case B:
+			theta += M_TAU/3; break;
+		case C:
+			theta -= M_TAU/3; break;
+		default:
+			break;
+	}
+	float phase = std::clamp((sin(theta)+1)/2, OUT_MIN, OUT_MAX);
 
-	float phase_A = std::clamp((sin(theta)+1)/2, OUT_MIN, OUT_MAX);
-
-	pwm_set_duty(PWM_CHANNEL, static_cast<uint32_t>(phase_A*PWM_MAX)&PWM_MAX);
+	pwm_set_duty(PWM_CHANNEL, static_cast<uint32_t>(phase*PWM_MAX)&PWM_MAX);
 }
 
-class ACControllerSlave : public Task {
-public:
+inline void innit_slave_spwm(QueueHandle_t spwm_config_q) {
 	static constexpr ledc_timer_t PWM_TIMER_SRC = LEDC_TIMER_1;
 	static constexpr int   PWM_FREQ_Hz    = 20000;
-	static constexpr float SINE_DISP_MULT = 30.0f;
+	esp_timer_handle_t timer_handle;
 
-	void taskFunction() override {
-		Integrator fluxAngularPosition(SAMPLE_TIME_s);
-		float angular_speed    = 0.0f;
+	esp_timer_create_args_t timer_config = {
+		.callback = pwm_output_handler,
+		.arg      = (void*)spwm_config_q,
+		.dispatch_method = ESP_TIMER_TASK,
+		.name = "TRIFASIC SINE GEN",
+		.skip_unhandled_events = false
+	};
+	ESP_ERROR_CHECK(esp_timer_create(&timer_config, &timer_handle));
+	ESP_LOGI(DEBUG_TAG, "SPWM timer created");
 
-		xQueueOverwrite(_fluxAngularSpeed_q, &angular_speed);
-		ESP_ERROR_CHECK(esp_timer_start_periodic(_timer_handle, PWM_SAMPLE_TIMEus));
+	ledc_timer_config_t pwm_timer_config = {
+		.speed_mode      = LEDC_HIGH_SPEED_MODE,
+		.duty_resolution = static_cast<ledc_timer_bit_t>(PWM_RESOLUTION),
+		.timer_num       = PWM_TIMER_SRC,
+		.freq_hz         = PWM_FREQ_Hz,
+		.clk_cfg         = LEDC_AUTO_CLK,
+		.deconfigure     = false
+	};
+	ESP_ERROR_CHECK(ledc_timer_config(&pwm_timer_config));
 
-		ESP_LOGI(DEBUG_TAG, "Initilizing task");
-		
-		while (true) {
-			vTaskSuspend(NULL);
-		}
-	}
+	ledc_channel_config_t pwm_channel_config = {
+		.gpio_num   = PWM_OUT_GPIO,
+		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.channel    = PWM_CHANNEL,
+		.intr_type  = LEDC_INTR_DISABLE,
+		.timer_sel  = PWM_TIMER_SRC,
+		.duty       = 0x0F,
+		.hpoint     = 0,
+		.flags = {.output_invert = 0}
+	};
+	ESP_ERROR_CHECK(ledc_channel_config(&pwm_channel_config));
 
-	ACControllerSlave(
-		const char* name, uint32_t stack_size, UBaseType_t prio,
-		QueueHandle_t fluxAngularSpeed
-	) : Task(name, stack_size, prio),
-		_fluxAngularSpeed_q(fluxAngularSpeed),
-		_timer_handle(nullptr)
-	{
-		esp_timer_create_args_t timer_config = {
-			.callback = pwm_output_handler,
-			.arg      = (void*)_fluxAngularSpeed_q,
-			.dispatch_method = ESP_TIMER_TASK,
-			.name = "TRIFASIC SINE GEN",
-			.skip_unhandled_events = false
-		};
-		ESP_ERROR_CHECK(esp_timer_create(&timer_config, &_timer_handle));
-		ESP_LOGI(DEBUG_TAG, "SPWM timer created");
+	ESP_ERROR_CHECK(ledc_fade_func_install(0));
+	ESP_LOGI(DEBUG_TAG, "PWM channel initialized");
 
-		ledc_timer_config_t pwm_timer_config = {
-			.speed_mode      = LEDC_HIGH_SPEED_MODE,
-			.duty_resolution = static_cast<ledc_timer_bit_t>(PWM_RESOLUTION),
-			.timer_num       = PWM_TIMER_SRC,
-			.freq_hz         = PWM_FREQ_Hz,
-			.clk_cfg         = LEDC_AUTO_CLK,
-			.deconfigure     = false
-		};
-		ESP_ERROR_CHECK(ledc_timer_config(&pwm_timer_config));
+	float angular_speed    = 0.0f;
 
-		ledc_channel_config_t pwm_channel_config = {
-			.gpio_num   = PWM_OUT_GPIO,
-			.speed_mode = LEDC_HIGH_SPEED_MODE,
-			.channel    = PWM_CHANNEL,
-			.intr_type  = LEDC_INTR_DISABLE,
-			.timer_sel  = PWM_TIMER_SRC,
-			.duty       = 0x0F,
-			.hpoint     = 0,
-			.flags = {.output_invert = 0}
-		};
-		ESP_ERROR_CHECK(ledc_channel_config(&pwm_channel_config));
+	xQueueOverwrite(spwm_config_q, &angular_speed);
+	ESP_ERROR_CHECK(esp_timer_start_periodic(timer_handle, PWM_SAMPLE_TIMEus));
 
-		ESP_ERROR_CHECK(ledc_fade_func_install(0));
-		ESP_LOGI(DEBUG_TAG, "PWM channel initialized");
-	}
-
-private:
-	QueueHandle_t      _fluxAngularSpeed_q;
-	esp_timer_handle_t _timer_handle;
-};
+	ESP_LOGI(DEBUG_TAG, "Initilizing task");
+}
 
 #endif

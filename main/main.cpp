@@ -25,12 +25,10 @@
 	#include "ACControllerTask.cpp"
 #elif CONFIG_AC_CONTROLLER_ROLE_MASTER
 #elif CONFIG_AC_CONTROLLER_ROLE_SLAVE
-	#include "slaveWifi.cpp"
+	#include "slaveWifi.hpp"
 	#include "ACControllerSlave.cpp"
 #endif
 #include "Telemetry.cpp"
-
-extern "C" {
 
 esp_err_t set_adc(
 	adc_oneshot_unit_handle_t *adc_handle_out,
@@ -39,10 +37,12 @@ esp_err_t set_adc(
 	adc_channel_t  adc_channel
 );
 
+#ifdef CONFIG_AC_CONTROLLER_ROLE_SLAVE
+QueueHandle_t spwm_config_q = xQueueCreate(1, sizeof(spwm_config_t));
+#else
 QueueHandle_t motor_count_q = xQueueCreate(1, sizeof(int32_t));
 QueueHandle_t raw_data_q    = xQueueCreate(1, sizeof(Raw_data));
 QueueHandle_t data_out_q    = xQueueCreate(1, sizeof(Data_out));
-QueueHandle_t fluxAngularSpeed_q = xQueueCreate(1, sizeof(float));
 
 QueueHandle_t tel_ref_speed_q   = xQueueCreate(1, sizeof(float));
 QueueHandle_t tel_motor_speed_q = xQueueCreate(1, sizeof(float));
@@ -92,8 +92,9 @@ void count_encoder(void* args) {
 	xQueueOverwriteFromISR(motor_count_q, &motor_count, &higherTaskWoken);
 	if (higherTaskWoken) portYIELD_FROM_ISR();
 }
+#endif
 
-void app_main(void)
+extern "C" void app_main(void)
 {
 #ifndef CONFIG_AC_CONTROLLER_ROLE_SLAVE
 	adc_oneshot_unit_handle_t adc0_handle;
@@ -161,19 +162,20 @@ void app_main(void)
 		channels
 	);
 #else
-	ACControllerSlave controllerTask(
-		"AC Controller Slave", 512, 2,
-		fluxAngularSpeed_q
-	);
+	// ACControllerSlave controllerTask(
+	// 	"AC C. Slave", 512, 2,
+	// 	spwm_config_q
+	// );
 #endif
 
 	(void)printf("\n\n");
 
-	controllerTask.start();
 #ifndef CONFIG_AC_CONTROLLER_ROLE_SLAVE
+	controllerTask.start();
 	telemetryTask.start();
 #else
-	innit_slave(fluxAngularSpeed_q);
+	innit_slave_spwm(spwm_config_q);
+	innit_slave_wifi(spwm_config_q);
 #endif
 
 	while (true) {
@@ -211,5 +213,4 @@ esp_err_t set_adc(
 	}
 
 	return ESP_OK;
-}
 }

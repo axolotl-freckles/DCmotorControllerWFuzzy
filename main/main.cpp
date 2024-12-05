@@ -24,6 +24,7 @@
 #elif CONFIG_AC_CONTROLLER_ROLE_COMPLETE
 	#include "ACControllerTask.cpp"
 #elif CONFIG_AC_CONTROLLER_ROLE_MASTER
+	#include "wifi_master.cpp"
 #elif CONFIG_AC_CONTROLLER_ROLE_SLAVE
 	#include "slaveWifi.hpp"
 	#include "ACControllerSlave.cpp"
@@ -152,6 +153,7 @@ extern "C" void app_main(void)
 	);
 #elif CONFIG_AC_CONTROLLER_ROLE_MASTER
 	// ############################################ MASTER AC CONTROLLER
+	innit_master_wifi();
 #endif
 	UART uartComm(
 		UART_NUM_2, TELEMETRY_TX_PIN, UART_BAUD_RATE, UART_PARITY, UART_STOP_BITS
@@ -171,7 +173,9 @@ extern "C" void app_main(void)
 	(void)printf("\n\n");
 
 #ifndef CONFIG_AC_CONTROLLER_ROLE_SLAVE
+#ifndef CONFIG_AC_CONTROLLER_ROLE_MASTER
 	controllerTask.start();
+#endif
 	telemetryTask.start();
 #else
 	innit_slave_spwm(spwm_config_q);

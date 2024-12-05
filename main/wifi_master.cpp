@@ -1,3 +1,16 @@
+/**
+ * @file wifi_master.cpp
+ * @author Zyanya
+ * @brief 
+ * @version 0.1
+ * @date 2024-12-04
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+#ifndef WIFI_MASTER_CPP
+#define WIFI_MASTER_CPP
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -43,8 +56,8 @@ void init_wifi_as_ap() {
             .password = "12345678",
             .ssid_len = 0,
             .channel = 1,
-            .max_connection = MAX_SLAVES,
-            .authmode = WIFI_AUTH_WPA2_PSK
+            .authmode = WIFI_AUTH_WPA2_PSK,
+            .max_connection = MAX_SLAVES
         },
     };
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
@@ -199,7 +212,7 @@ void configure_motor_with_sockets() {
 }
 
 // Main application entry point
-void app_main(void) {
+void innit_master_wifi(void) {
     printf("Starting three-phase motor configuration...\n");
 
     // Initialize Wi-Fi as Access Point
@@ -216,3 +229,5 @@ void app_main(void) {
 
     printf("Motor configuration completed.\n");
 }
+
+#endif

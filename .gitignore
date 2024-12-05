@@ -2,4 +2,6 @@ build/
 managed_components/
 *.zip
 sdkconfig
+sdkconfig.old
 dependencies.lock
+*.py

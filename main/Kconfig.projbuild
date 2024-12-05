@@ -25,3 +25,32 @@ menu "Wifi Configuration"
         help
             Max number of the STA connects to AP.
 endmenu
+
+menu "Motor Controller Configuration"
+    choice CONTROLLER_TYPE
+        prompt "Controller type"
+        default  CONTROLLER_TYPE_AC
+        help
+            Select between an AC motor and a DC motor
+
+        config CONTROLLER_TYPE_DC
+            bool "DC"
+        config CONTROLLER_TYPE_AC
+            bool "AC"
+    endchoice
+
+    choice AC_CONTROLLER_ROLE
+        depends on CONTROLLER_TYPE_AC
+        prompt "Controller role"
+        default AC_CONTROLLER_ROLE_COMPLETE
+        help
+            complete does the three phases, master coordinates, slave just has one phase
+        
+        config AC_CONTROLLER_ROLE_COMPLETE
+            bool "complete"
+        config AC_CONTROLLER_ROLE_MASTER
+            bool "master"
+        config AC_CONTROLLER_ROLE_SLAVE
+            bool "slave"
+    endchoice
+endmenu

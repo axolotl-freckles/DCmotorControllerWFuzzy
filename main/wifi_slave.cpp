@@ -34,7 +34,7 @@
 #define WIFI_SSID CONFIG_WIFI_SSID        // SSID de Wi-Fi configurado en menuconfig
 #define WIFI_PASS CONFIG_WIFI_PASSWORD    // Contraseña de Wi-Fi
 #define MASTER_PORT 12345                 // Puerto del maestro
-#define MDNS_SERVICE_TYPE "_spwm"         // Servicio mDNS del maestro
+#define MDNS_SERVICE_TYPE_MASTER "_spwm"         // Servicio mDNS del maestro
 
 static const char *TAG = "SLAVE_DEVICE";
 

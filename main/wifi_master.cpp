@@ -46,6 +46,22 @@ bool phases_assigned[3] = {false, false, false}; // Indices: 0 = A, 1 = B, 2 = C
 // Array to track connected slaves
 char slave_ips[MAX_SLAVES][16];
 
+static bool mdns_initialized = false;
+
+void start_mdns_service ()
+{
+    if (mdns_initialized)
+    {
+        ESP_LOGW(TAG, "mdns Inicializado");
+        return;
+    }
+    ESP_ERROR_CHECK(mdns_init()); // Asegúrate de descomentar esta línea
+    ESP_ERROR_CHECK(mdns_hostname_set("esp32_master"));
+    ESP_LOGI(TAG, "MDNS iniciado con hostname: esp32_master");
+
+    mdns_initialized = true;
+}
+
 // Initialize Access Point
 void init_wifi_as_ap() {
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -66,12 +82,7 @@ void init_wifi_as_ap() {
     ESP_LOGI(TAG, "Access Point iniciado con SSID: ESP32_MASTER");
 }
 
-// Initialize MDNS service
-void start_mdns_service() {
-    // ESP_ERROR_CHECK(mdns_init());
-    ESP_ERROR_CHECK(mdns_hostname_set("esp32_master"));
-    ESP_LOGI(TAG, "MDNS iniciado con hostname: esp32_master");
-}
+
 
 // Function to initialize communication with a slave
 int initialize_socket(const char *ip, int port) {

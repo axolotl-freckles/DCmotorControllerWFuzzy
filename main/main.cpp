@@ -40,11 +40,9 @@ esp_err_t set_adc(
 
 #ifdef CONFIG_AC_CONTROLLER_ROLE_SLAVE
 QueueHandle_t spwm_config_q = xQueueCreate(1, sizeof(spwm_config_t));
-#else
-QueueHandle_t motor_count_q = xQueueCreate(1, sizeof(int32_t));
-QueueHandle_t raw_data_q    = xQueueCreate(1, sizeof(Raw_data));
-QueueHandle_t data_out_q    = xQueueCreate(1, sizeof(Data_out));
+#endif
 
+#ifdef REQUIRES_TELEMETRY
 QueueHandle_t tel_ref_speed_q   = xQueueCreate(1, sizeof(float));
 QueueHandle_t tel_motor_speed_q = xQueueCreate(1, sizeof(float));
 QueueHandle_t tel_error_q       = xQueueCreate(1, sizeof(float));
@@ -59,6 +57,11 @@ QueueHandle_t channels[N_TELEMETRY_CHANNELS] = {
 	tel_control_signal_q,
 	tel_exec_time_q
 };
+#endif
+#ifdef REQUIRES_DATA_PROCESS
+QueueHandle_t motor_count_q = xQueueCreate(1, sizeof(int32_t));
+QueueHandle_t raw_data_q    = xQueueCreate(1, sizeof(Raw_data));
+QueueHandle_t data_out_q    = xQueueCreate(1, sizeof(Data_out));
 
 typedef struct {
 	adc_oneshot_unit_handle_t adc_handle;
@@ -97,8 +100,7 @@ void count_encoder(void* args) {
 
 extern "C" void app_main(void)
 {
-#ifndef CONFIG_AC_CONTROLLER_ROLE_SLAVE
-#ifndef CONFIG_AC_CONTROLLER_ROLE_MASTER
+#ifdef REQUIRES_DATA_PROCESS
 	adc_oneshot_unit_handle_t adc0_handle;
 	if (set_adc(&adc0_handle, ADC_UNIT_1, static_cast<adc_bitwidth_t>(ADC_BITWIDTH), ADC_CHANNEL_0))
 		return;
@@ -145,6 +147,17 @@ extern "C" void app_main(void)
 	);
 	dataProcessTask.start();
 #endif
+#ifdef REQUIRES_DATA_PROCESS
+	UART uartComm(
+		UART_NUM_2, TELEMETRY_TX_PIN, UART_BAUD_RATE, UART_PARITY, UART_STOP_BITS
+	);
+	Telemetry<N_TELEMETRY_CHANNELS> telemetryTask(
+		"Telemetry Task", 2080,
+		&uartComm,
+		channels
+	);
+#endif
+
 #ifdef CONFIG_CONTROLLER_TYPE_DC
 	// ############################################ DC CONTROLLER
 #elif CONFIG_AC_CONTROLLER_ROLE_COMPLETE
@@ -156,16 +169,8 @@ extern "C" void app_main(void)
 #elif CONFIG_AC_CONTROLLER_ROLE_MASTER
 	// ############################################ MASTER AC CONTROLLER
 	innit_master_wifi();
-#endif
-	UART uartComm(
-		UART_NUM_2, TELEMETRY_TX_PIN, UART_BAUD_RATE, UART_PARITY, UART_STOP_BITS
-	);
-	Telemetry<N_TELEMETRY_CHANNELS> telemetryTask(
-		"Telemetry Task", 2080,
-		&uartComm,
-		channels
-	);
-#else
+#elif CONFIG_AC_CONTROLLER_ROLE_SLAVE
+	// ############################################ SLAVE AC CONTROLLER
 	// ACControllerSlave controllerTask(
 	// 	"AC C. Slave", 512, 2,
 	// 	spwm_config_q
@@ -174,12 +179,17 @@ extern "C" void app_main(void)
 
 	(void)printf("\n\n");
 
-#ifndef CONFIG_AC_CONTROLLER_ROLE_SLAVE
-#ifndef CONFIG_AC_CONTROLLER_ROLE_MASTER
-	controllerTask.start();
-#endif
+#ifdef REQUIRES_TELEMETRY
 	telemetryTask.start();
-#else
+#endif
+
+#ifdef CONFIG_CONTROLLER_TYPE_DC
+	controllerTask.start();
+#elif CONFIG_AC_CONTROLLER_ROLE_COMPLETE
+	controllerTask.start();
+#elif CONFIG_AC_CONTROLLER_ROLE_MASTER
+
+#elif CONFIG_AC_CONTROLLER_ROLE_SLAVE
 	innit_slave_spwm(spwm_config_q);
 	innit_slave_wifi(spwm_config_q);
 #endif

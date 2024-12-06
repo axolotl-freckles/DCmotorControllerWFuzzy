@@ -3,8 +3,22 @@
 #include <stdint.h>
 #include <math.h>
 
+#include "sdkconfig.h"
+
 #include "hal/ledc_types.h"
 #include "hal/uart_types.h"
+
+#ifdef CONFIG_CONTROLLER_TYPE_DC
+	#define REQUIRES_DATA_PROCESS
+	#define REQUIRES_TELEMETRY
+#elif  CONFIG_AC_CONTROLLER_ROLE_COMPLETE
+	#define REQUIRES_DATA_PROCESS
+	#define REQUIRES_TELEMETRY
+#elif  CONFIG_AC_CONTROLLER_ROLE_MASTER
+
+#elif  CONFIG_AC_CONTROLLER_ROLE_SLAVE
+
+#endif
 
 constexpr float M_TAU = 2*M_PI;
 

@@ -32,6 +32,10 @@
 #define TAG "SocketMaster"
 #define MAX_SLAVES 3
 #define SYNC_SIGNAL "SYNC_SIGNAL"
+#define MDNS_SERVICE_TYPE "_spwm"         // Servicio mDNS del maestro
+#define SLAVE_PORT 2000
+#define MASTER_PORT 12345                 // Puerto del maestro
+#define MDNS_QUERY_TIMEOUT 10000
 
 // Event group bits
 #define SLAVE1_CONNECTED_BIT (1 << 0)
@@ -50,6 +54,7 @@ void start_mdns_service() {
     }
     ESP_ERROR_CHECK(mdns_init());
     ESP_ERROR_CHECK(mdns_hostname_set("esp32_master"));
+    ESP_ERROR_CHECK(mdns_service_add("AC_CONTROL_MASTER", MDNS_SERVICE_TYPE, "_tcp", MASTER_PORT, NULL, 0));
     ESP_LOGI(TAG, "MDNS started with hostname: esp32_master");
 
     mdns_initialized = true;
@@ -145,26 +150,26 @@ void configure_motor_with_sockets() {
     int discovered_slaves = 0;
 
     // Discover slaves dynamically using MDNS
-ESP_LOGI(TAG, "Discovering slaves via MDNS...");
-for (int i = 0; i < MAX_SLAVES; i++) {
-    mdns_result_t *result = NULL;
-    esp_err_t err = mdns_query_ptr("_slave", "_tcp", 2000, 1, &result);
-    if (err == ESP_OK && result != NULL) {
-        char ip_str[INET_ADDRSTRLEN];
-        if (result->addr->addr.type == IPADDR_TYPE_V4) {
-            // Convert IPv4 address to string
-            inet_ntoa_r(result->addr->addr.u_addr.ip4, ip_str, sizeof(ip_str));
-            slave_ips[i] = strdup(ip_str); // Save the IP as a string
-            ESP_LOGI(TAG, "Discovered slave %d: %s", i + 1, slave_ips[i]);
-            discovered_slaves++;
+    ESP_LOGI(TAG, "Discovering slaves via MDNS...");
+    for (int i = 0; i < MAX_SLAVES; i++) {
+        mdns_result_t *result = NULL;
+        esp_err_t err = mdns_query_ptr("_slave", "_tcp", SLAVE_PORT, MDNS_QUERY_TIMEOUT, &result);
+        if (err == ESP_OK && result != NULL) {
+            char ip_str[INET_ADDRSTRLEN];
+            if (result->addr->addr.type == IPADDR_TYPE_V4) {
+                // Convert IPv4 address to string
+                inet_ntoa_r(result->addr->addr.u_addr.ip4, ip_str, sizeof(ip_str));
+                slave_ips[i] = strdup(ip_str); // Save the IP as a string
+                ESP_LOGI(TAG, "Discovered slave %d: %s", i + 1, slave_ips[i]);
+                discovered_slaves++;
+            } else {
+                ESP_LOGE(TAG, "Unsupported IP address type for slave %d", i + 1);
+            }
+            mdns_query_results_free(result);
         } else {
-            ESP_LOGE(TAG, "Unsupported IP address type for slave %d", i + 1);
+            ESP_LOGW(TAG, "Slave %d not found via MDNS", i + 1);
         }
-        mdns_query_results_free(result);
-    } else {
-        ESP_LOGW(TAG, "Slave %d not found via MDNS", i + 1);
     }
-}
 
 
     if (discovered_slaves < MAX_SLAVES) {

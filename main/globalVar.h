@@ -51,8 +51,8 @@ constexpr int A_PWM_OUT_GPIO = 27;
 constexpr int B_PWM_OUT_GPIO = 26;
 constexpr int C_PWM_OUT_GPIO = 25;
 
-constexpr float AC_OUT_MAX = 1.00f;
-constexpr float AC_OUT_MIN = 0.00f;
+constexpr float AC_OUT_MAX = 0.998f;
+constexpr float AC_OUT_MIN = 0.002f;
 
 constexpr int TELEMETRY_TX_PIN = 32;
 

@@ -32,7 +32,8 @@
 #define TAG "SocketMaster"
 #define MAX_SLAVES 3
 #define SYNC_SIGNAL "SYNC_SIGNAL"
-#define MDNS_SERVICE_TYPE "_spwm"         // Servicio mDNS del maestro
+#define MDNS_SERVICE_TYPE_MASTER "_spwm"         // Servicio mDNS del maestro
+#define MDNS_SERVICE_TYPE_SLAVE  "_slave"
 #define SLAVE_PORT 2000
 #define MASTER_PORT 12345                 // Puerto del maestro
 #define MDNS_QUERY_TIMEOUT 10000
@@ -54,7 +55,7 @@ void start_mdns_service() {
     }
     ESP_ERROR_CHECK(mdns_init());
     ESP_ERROR_CHECK(mdns_hostname_set("esp32_master"));
-    ESP_ERROR_CHECK(mdns_service_add("AC_CONTROL_MASTER", MDNS_SERVICE_TYPE, "_tcp", MASTER_PORT, NULL, 0));
+    ESP_ERROR_CHECK(mdns_service_add("AC_CONTROL_MASTER", MDNS_SERVICE_TYPE_MASTER, "_tcp", MASTER_PORT, NULL, 0));
     ESP_LOGI(TAG, "MDNS started with hostname: esp32_master");
 
     mdns_initialized = true;
@@ -153,7 +154,7 @@ void configure_motor_with_sockets() {
     ESP_LOGI(TAG, "Discovering slaves via MDNS...");
     for (int i = 0; i < MAX_SLAVES; i++) {
         mdns_result_t *result = NULL;
-        esp_err_t err = mdns_query_ptr("_slave", "_tcp", SLAVE_PORT, MDNS_QUERY_TIMEOUT, &result);
+        esp_err_t err = mdns_query_ptr(MDNS_SERVICE_TYPE_SLAVE, "_tcp", SLAVE_PORT, MDNS_QUERY_TIMEOUT, &result);
         if (err == ESP_OK && result != NULL) {
             char ip_str[INET_ADDRSTRLEN];
             if (result->addr->addr.type == IPADDR_TYPE_V4) {

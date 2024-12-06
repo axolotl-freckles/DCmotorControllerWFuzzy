@@ -177,7 +177,7 @@ static void mdns_discovery_task(void *pvParameters) {
 	mdns_init();
 
 	mdns_result_t *results = NULL;
-	esp_err_t err = mdns_query_ptr(MDNS_SERVICE_TYPE, "_tcp", 10000, 10, &results);
+	esp_err_t err = mdns_query_ptr(MDNS_SERVICE_TYPE_MASTER, "_tcp", 10000, 10, &results);
 	if (err != ESP_OK) {
 		ESP_LOGE(TAG, "mDNS query failed: %s", esp_err_to_name(err));
 		vTaskDelete(NULL);

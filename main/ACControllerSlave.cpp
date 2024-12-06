@@ -30,8 +30,6 @@ using namespace std::chrono;
 constexpr int64_t PWM_SAMPLE_TIMEus = 200;
 constexpr float   PWM_SAMPLE_TIMEs  = PWM_SAMPLE_TIMEus*1e-6;
 
-static constexpr float OUT_MIN = 0.02f;
-static constexpr float OUT_MAX = 0.98f;
 #define DEBUG_TAG "AC_CTRLR_SLAVE"
 
 /**
@@ -58,7 +56,7 @@ void IRAM_ATTR pwm_output_handler(void* args) {
 		default:
 			break;
 	}
-	float phase = std::clamp((sin(theta)+1)/2, OUT_MIN, OUT_MAX);
+	float phase = std::clamp((sin(theta)+1)/2, AC_OUT_MIN, AC_OUT_MAX);
 
 	pwm_set_duty(PWM_CHANNEL, static_cast<uint32_t>(phase*PWM_MAX)&PWM_MAX);
 }

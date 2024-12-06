@@ -30,6 +30,7 @@ constexpr int64_t SAMPLE_TIME_us = 16000;
 constexpr int64_t SAMPLE_TIME_ms = SAMPLE_TIME_us/1000;
 constexpr float   SAMPLE_TIME_s  = (SAMPLE_TIME_us*1e-6);
 constexpr int     ENCODER_SLITS  = 80;
+constexpr int     ENCODER_GPIO   = 13;
 
 inline float rad_s2rpm(const float val) {return val*(60/(2*M_PI));}
 inline float rpm2rad_s(const float val) {return val*(2*M_PI/60);}
@@ -37,6 +38,7 @@ inline float rpm2rad_s(const float val) {return val*(2*M_PI/60);}
 constexpr int ADC_BITWIDTH = 9;
 constexpr int ADC_MAX      = (1<<ADC_BITWIDTH)-1;
 
+constexpr int PWM_OUT_GPIO = 27;
 constexpr int PWM_RESOLUTION = 8;
 constexpr int PWM_MAX        = (1<<PWM_RESOLUTION)-1;
 constexpr ledc_channel_t PWM_CHANNEL = LEDC_CHANNEL_0;
@@ -49,8 +51,8 @@ constexpr int A_PWM_OUT_GPIO = 27;
 constexpr int B_PWM_OUT_GPIO = 26;
 constexpr int C_PWM_OUT_GPIO = 25;
 
-constexpr int ENCODER_GPIO = 13;
-constexpr int PWM_OUT_GPIO = 27;
+constexpr float AC_OUT_MAX = 1.00f;
+constexpr float AC_OUT_MIN = 0.00f;
 
 constexpr int TELEMETRY_TX_PIN = 32;
 

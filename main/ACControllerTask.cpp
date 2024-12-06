@@ -28,9 +28,6 @@ using namespace std::chrono;
 constexpr int64_t PWM_SAMPLE_TIMEus = 200;
 constexpr float   PWM_SAMPLE_TIMEs  = PWM_SAMPLE_TIMEus*1e-6;
 
-constexpr float OUT_MIN = 0.02f;
-constexpr float OUT_MAX = 0.98f;
-
 /**
  * @brief It isn't recommended to reduce the sampling time below 10ms with the
  * FreeRTOS task scheduler. A hardware timer is used instead.
@@ -48,9 +45,9 @@ void IRAM_ATTR pwm_output_handler(void* args) {
 	phase_A_theta += angular_speed*PWM_SAMPLE_TIMEs;
 	if (phase_A_theta > M_TAU) phase_A_theta -= M_TAU;
 
-	float phase_A = std::clamp((sin(phase_A_theta        )+1)/2, OUT_MIN, OUT_MAX);
-	float phase_B = std::clamp((sin(phase_A_theta+M_TAU/3)+1)/2, OUT_MIN, OUT_MAX);
-	float phase_C = std::clamp((sin(phase_A_theta-M_TAU/3)+1)/2, OUT_MIN, OUT_MAX);
+	float phase_A = std::clamp((sin(phase_A_theta        )+1)/2, AC_OUT_MIN, AC_OUT_MAX);
+	float phase_B = std::clamp((sin(phase_A_theta+M_TAU/3)+1)/2, AC_OUT_MIN, AC_OUT_MAX);
+	float phase_C = std::clamp((sin(phase_A_theta-M_TAU/3)+1)/2, AC_OUT_MIN, AC_OUT_MAX);
 
 	pwm_set_duty(A_PWM_CHANNEL, static_cast<uint32_t>(phase_A*PWM_MAX)&PWM_MAX);
 	pwm_set_duty(B_PWM_CHANNEL, static_cast<uint32_t>(phase_B*PWM_MAX)&PWM_MAX);

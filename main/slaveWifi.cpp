@@ -21,7 +21,7 @@
 #define WIFI_SSID CONFIG_WIFI_SSID        // SSID de Wi-Fi configurado en menuconfig
 #define WIFI_PASS CONFIG_WIFI_PASSWORD    // Contraseña de Wi-Fi
 #define MDNS_SERVICE_TYPE "_spwm"         // Servicio mDNS del maestro
-#define SLAVE_PORT 2000
+#define SLAVE_PORT  2000
 #define MASTER_PORT 12345                 // Puerto del maestro
 #define MDNS_QUERY_TIMEOUT 10000
 
@@ -57,7 +57,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 		ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
 
 		// Inicia mDNS para descubrir al maestro
-		xTaskCreate(mdns_discovery_task, "mdns_discovery", 2080, NULL, 5, NULL);
+		xTaskCreate(mdns_discovery_task, "mdns_discovery", 4096, NULL, 5, NULL);
 	}
 }
 
@@ -157,6 +157,7 @@ static bool connect_to_master(const char *ip, int port) {
 static void mdns_discovery_task(void *pvParameters) {
 	ESP_LOGI(TAG, "Searching for master via mDNS...");
 	ESP_ERROR_CHECK(mdns_init());
+	ESP_ERROR_CHECK(mdns_hostname_set("esp32_slave"));
 	ESP_ERROR_CHECK(mdns_service_add("AC_CONTROL_SLAVE", "_slave", "_tcp", SLAVE_PORT, NULL, 0));
 
 	mdns_result_t *results = NULL;

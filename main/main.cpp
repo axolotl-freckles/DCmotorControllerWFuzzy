@@ -19,6 +19,7 @@
 #include "TakagiTsugenoController.hpp"
 #include "TakagiTsugenoController.cpp"
 #include "DataProcessTask.cpp"
+#include "Telemetry.cpp"
 #ifdef CONFIG_CONTROLLER_TYPE_DC
 #define REQUIRES_DATA_PROCESS
 #define REQUIRES_TELEMETRY
@@ -35,7 +36,6 @@
 #include "slaveWifi.hpp"
 #include "ACControllerSlave.cpp"
 #endif
-#include "Telemetry.cpp"
 
 esp_err_t set_adc(
 	adc_oneshot_unit_handle_t *adc_handle_out,
@@ -177,10 +177,6 @@ extern "C" void app_main(void)
 	innit_master_wifi();
 #elif CONFIG_AC_CONTROLLER_ROLE_SLAVE
 	// ############################################ SLAVE AC CONTROLLER
-	// ACControllerSlave controllerTask(
-	// 	"AC C. Slave", 512, 2,
-	// 	spwm_config_q
-	// );
 #endif
 
 	(void)printf("\n\n");

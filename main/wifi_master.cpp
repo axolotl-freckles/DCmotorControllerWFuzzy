@@ -26,6 +26,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "esp_timer.h"
+#include "nvs_flash.h"
 
 #define TAG "SocketMaster"
 #define MAX_SLAVES 3
@@ -67,7 +68,7 @@ void init_wifi_as_ap() {
 
 // Initialize MDNS service
 void start_mdns_service() {
-    ESP_ERROR_CHECK(mdns_init());
+    // ESP_ERROR_CHECK(mdns_init());
     ESP_ERROR_CHECK(mdns_hostname_set("esp32_master"));
     ESP_LOGI(TAG, "MDNS iniciado con hostname: esp32_master");
 }
@@ -214,6 +215,12 @@ void configure_motor_with_sockets() {
 // Main application entry point
 void innit_master_wifi(void) {
     printf("Starting three-phase motor configuration...\n");
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
 
     // Initialize Wi-Fi as Access Point
     init_wifi_as_ap();

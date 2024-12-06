@@ -98,6 +98,7 @@ void count_encoder(void* args) {
 extern "C" void app_main(void)
 {
 #ifndef CONFIG_AC_CONTROLLER_ROLE_SLAVE
+#ifndef CONFIG_AC_CONTROLLER_ROLE_MASTER
 	adc_oneshot_unit_handle_t adc0_handle;
 	if (set_adc(&adc0_handle, ADC_UNIT_1, static_cast<adc_bitwidth_t>(ADC_BITWIDTH), ADC_CHANNEL_0))
 		return;
@@ -143,6 +144,7 @@ extern "C" void app_main(void)
 		raw_data_q, data_out_q, SAMPLE_TIME_ms
 	);
 	dataProcessTask.start();
+#endif
 #ifdef CONFIG_CONTROLLER_TYPE_DC
 	// ############################################ DC CONTROLLER
 #elif CONFIG_AC_CONTROLLER_ROLE_COMPLETE

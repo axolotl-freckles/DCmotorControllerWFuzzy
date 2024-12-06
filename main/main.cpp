@@ -20,14 +20,20 @@
 #include "TakagiTsugenoController.cpp"
 #include "DataProcessTask.cpp"
 #ifdef CONFIG_CONTROLLER_TYPE_DC
-	#include "ControllerTask.cpp"
+#define REQUIRES_DATA_PROCESS
+#define REQUIRES_TELEMETRY
+
+#include "ControllerTask.cpp"
 #elif CONFIG_AC_CONTROLLER_ROLE_COMPLETE
-	#include "ACControllerTask.cpp"
+#define REQUIRES_DATA_PROCESS
+#define REQUIRES_TELEMETRY
+
+#include "ACControllerTask.cpp"
 #elif CONFIG_AC_CONTROLLER_ROLE_MASTER
-	#include "wifi_master.cpp"
+#include "wifi_master.cpp"
 #elif CONFIG_AC_CONTROLLER_ROLE_SLAVE
-	#include "slaveWifi.hpp"
-	#include "ACControllerSlave.cpp"
+#include "slaveWifi.hpp"
+#include "ACControllerSlave.cpp"
 #endif
 #include "Telemetry.cpp"
 

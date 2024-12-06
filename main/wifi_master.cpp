@@ -8,6 +8,7 @@
  * @copyright Copyright (c) 2024
  * 
  */
+
 #ifndef WIFI_MASTER_CPP
 #define WIFI_MASTER_CPP
 
@@ -39,25 +40,17 @@
 #define ALL_SLAVES_CONNECTED (SLAVE1_CONNECTED_BIT | SLAVE2_CONNECTED_BIT | SLAVE3_CONNECTED_BIT)
 
 EventGroupHandle_t event_group;
-
-// Array to track assigned phases
-bool phases_assigned[3] = {false, false, false}; // Indices: 0 = A, 1 = B, 2 = C
-
-// Array to track connected slaves
-char slave_ips[MAX_SLAVES][16];
-
 static bool mdns_initialized = false;
 
-void start_mdns_service ()
-{
-    if (mdns_initialized)
-    {
-        ESP_LOGW(TAG, "mdns Inicializado");
+// Start MDNS service
+void start_mdns_service() {
+    if (mdns_initialized) {
+        ESP_LOGW(TAG, "MDNS already initialized.");
         return;
     }
-    ESP_ERROR_CHECK(mdns_init()); // Asegúrate de descomentar esta línea
+    ESP_ERROR_CHECK(mdns_init());
     ESP_ERROR_CHECK(mdns_hostname_set("esp32_master"));
-    ESP_LOGI(TAG, "MDNS iniciado con hostname: esp32_master");
+    ESP_LOGI(TAG, "MDNS started with hostname: esp32_master");
 
     mdns_initialized = true;
 }
@@ -66,11 +59,12 @@ void start_mdns_service ()
 void init_wifi_as_ap() {
     esp_netif_init();
     esp_event_loop_create_default();
-    esp_netif_create_default_wifi_sta();
+    esp_netif_create_default_wifi_ap();
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+
     wifi_config_t ap_config = {
         .ap = {
             .ssid = "ESP32_MASTER",
@@ -81,14 +75,13 @@ void init_wifi_as_ap() {
             .max_connection = MAX_SLAVES
         },
     };
+
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-    ESP_LOGI(TAG, "Access Point iniciado con SSID: ESP32_MASTER");
+    ESP_LOGI(TAG, "Access Point started with SSID: ESP32_MASTER");
 }
 
-
-
-// Function to initialize communication with a slave
+// Initialize communication with a slave
 int initialize_socket(const char *ip, int port) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -115,7 +108,7 @@ int initialize_socket(const char *ip, int port) {
     return sock;
 }
 
-// Function to send data to the slave
+// Send data to the slave
 void send_data_to_slave(int sock, const char *data) {
     if (send(sock, data, strlen(data), 0) < 0) {
         ESP_LOGE(TAG, "Failed to send data");
@@ -124,105 +117,116 @@ void send_data_to_slave(int sock, const char *data) {
     }
 }
 
-// Function to receive ACK from slave
+// Receive ACK from slave
 bool receive_ack_from_slave(int sock) {
     char buffer[64];
     int len = recv(sock, buffer, sizeof(buffer) - 1, 0);
     if (len > 0) {
         buffer[len] = '\0';
-        ESP_LOGI(TAG, "ACK recibido: %s", buffer);
+        ESP_LOGI(TAG, "ACK received: %s", buffer);
         return strcmp(buffer, "ACK") == 0;
     } else {
-        ESP_LOGE(TAG, "Error al recibir ACK");
+        ESP_LOGE(TAG, "Failed to receive ACK");
         return false;
     }
 }
 
-// Function to close the socket
+// Close the socket
 void close_socket(int sock) {
     close(sock);
     ESP_LOGI(TAG, "Connection closed");
 }
 
-// Main function to configure motor
+// Configure motor using dynamic discovery and pre-configured settings
 void configure_motor_with_sockets() {
-    char slave_ip[64];
-    char phase[2];
-    char frequency[16];
-    int freq_value;
+    const char *initial_frequency = "50"; // Initial frequency (50 Hz)
+    const char *phases[] = {"A", "B", "C"}; // Predefined phases
+    const char *slave_ips[MAX_SLAVES] = {NULL, NULL, NULL}; // To store discovered IPs
+    int discovered_slaves = 0;
 
-    // Request frequency
-    while (true) {
-        printf("Enter motor frequency (30-60 Hz): ");
-        fgets(frequency, sizeof(frequency), stdin);
-        freq_value = atoi(frequency);
-        if (freq_value >= 30 && freq_value <= 60) {
-            break;
+    // Discover slaves dynamically using MDNS
+    ESP_LOGI(TAG, "Discovering slaves via MDNS...");
+    for (int i = 0; i < MAX_SLAVES; i++) {
+        mdns_result_t *result = NULL;
+        esp_err_t err = mdns_query_ptr("_slave", "_tcp", 2000, 1, &result);
+        if (err == ESP_OK && result != NULL) {
+            slave_ips[i] = strdup(result->addr->addr.str); // Save the slave's IP address
+            ESP_LOGI(TAG, "Discovered slave %d: %s", i + 1, slave_ips[i]);
+            discovered_slaves++;
+            mdns_query_results_free(result);
+        } else {
+            ESP_LOGW(TAG, "Slave %d not found via MDNS", i + 1);
         }
-        printf("Invalid frequency. It must be between 30 and 60 Hz.\n");
     }
 
-    snprintf(frequency, sizeof(frequency), "%d", freq_value);
+    if (discovered_slaves < MAX_SLAVES) {
+        ESP_LOGE(TAG, "Not all slaves were discovered (%d/%d). Exiting...", discovered_slaves, MAX_SLAVES);
+        return;
+    }
 
     // Configure each phase
     for (int i = 0; i < MAX_SLAVES; i++) {
-        while (true) {
-            printf("Enter the phase for the slave (A, B, C): ");
-            fgets(phase, sizeof(phase), stdin);
-            phase[strcspn(phase, "\n")] = '\0'; // Remove newline character
+        char json_data[128];
+        snprintf(json_data, sizeof(json_data), "{\"frequency\":\"%s\", \"phase\":\"%s\"}", initial_frequency, phases[i]);
 
-            // Validate that the phase is unique
-            if (strcmp(phase, "A") == 0 && !phases_assigned[0]) {
-                phases_assigned[0] = true;
-                break;
-            } else if (strcmp(phase, "B") == 0 && !phases_assigned[1]) {
-                phases_assigned[1] = true;
-                break;
-            } else if (strcmp(phase, "C") == 0 && !phases_assigned[2]) {
-                phases_assigned[2] = true;
+        int attempts = 0;
+        const int max_attempts = 3;
+        int sock = -1;
+
+        while (attempts < max_attempts) {
+            sock = initialize_socket(slave_ips[i], 12345); // Fixed port: 12345
+            if (sock >= 0) {
+                ESP_LOGI(TAG, "Successfully connected to slave %s after %d attempt(s)", slave_ips[i], attempts + 1);
                 break;
             } else {
-                printf("Invalid or duplicate phase. Try again.\n");
+                ESP_LOGW(TAG, "Failed to connect to slave %s (attempt %d/%d)", slave_ips[i], attempts + 1, max_attempts);
+                vTaskDelay(pdMS_TO_TICKS(1000)); // Wait 1 second before retrying
             }
+            attempts++;
         }
 
-        printf("Enter the IP address of the slave for phase %s: ", phase);
-        fgets(slave_ip, sizeof(slave_ip), stdin);
-        slave_ip[strcspn(slave_ip, "\n")] = '\0'; // Remove newline character
-        strncpy(slave_ips[i], slave_ip, sizeof(slave_ip));
+        if (sock < 0) {
+            ESP_LOGE(TAG, "Could not connect to slave %s after %d attempts. Skipping...", slave_ips[i], max_attempts);
+            continue;
+        }
 
-        // Create the JSON
-        char json_data[128];
-        snprintf(json_data, sizeof(json_data), "{\"frequency\":\"%s\", \"phase\":\"%s\"}", frequency, phase);
+        // Send JSON data to the slave
+        send_data_to_slave(sock, json_data);
 
-        // Initialize socket and send data
-        int sock = initialize_socket(slave_ip, 12345); // Fixed port: 12345
-        if (sock >= 0) {
-            send_data_to_slave(sock, json_data);
-
-            // Wait for ACK
-            if (!receive_ack_from_slave(sock)) {
-                ESP_LOGE(TAG, "Failed to receive ACK from slave %s", slave_ip);
-                close_socket(sock);
-                return;
-            }
+        // Wait for ACK from the slave
+        if (!receive_ack_from_slave(sock)) {
+            ESP_LOGE(TAG, "Failed to receive ACK from slave %s. Skipping...", slave_ips[i]);
             close_socket(sock);
+            continue;
         }
 
-        // Set event group bit
+        close_socket(sock);
+
+        // Set the corresponding bit in the Event Group
         xEventGroupSetBits(event_group, 1 << i);
     }
 
-    // Wait for all slaves to be connected
+    // Wait until all slaves are connected
     xEventGroupWaitBits(event_group, ALL_SLAVES_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
     ESP_LOGI(TAG, "All slaves are connected. Sending SYNC_SIGNAL...");
 
     // Send SYNC_SIGNAL to all slaves
     for (int i = 0; i < MAX_SLAVES; i++) {
+        if (slave_ips[i] == NULL) continue;
+
         int sock = initialize_socket(slave_ips[i], 12345);
         if (sock >= 0) {
             send_data_to_slave(sock, SYNC_SIGNAL);
             close_socket(sock);
+        } else {
+            ESP_LOGE(TAG, "Failed to send SYNC_SIGNAL to slave %s", slave_ips[i]);
+        }
+    }
+
+    // Free allocated memory for slave IPs
+    for (int i = 0; i < MAX_SLAVES; i++) {
+        if (slave_ips[i] != NULL) {
+            free((void *)slave_ips[i]);
         }
     }
 }
@@ -230,6 +234,8 @@ void configure_motor_with_sockets() {
 // Main application entry point
 void innit_master_wifi(void) {
     printf("Starting three-phase motor configuration...\n");
+
+    // Initialize NVS
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());

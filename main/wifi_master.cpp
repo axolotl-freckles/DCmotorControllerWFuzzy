@@ -30,13 +30,13 @@
 #include "nvs_flash.h"
 
 #define TAG "SocketMaster"
-#define MAX_SLAVES 3
+#define MAX_SLAVES 1
 #define SYNC_SIGNAL "SYNC_SIGNAL"
 #define MDNS_SERVICE_TYPE_MASTER "_spwm"         // Servicio mDNS del maestro
 #define MDNS_SERVICE_TYPE_SLAVE  "_slave"
 #define SLAVE_PORT 2000
 #define MASTER_PORT 12345                 // Puerto del maestro
-#define MDNS_QUERY_TIMEOUT 10000
+#define MDNS_QUERY_TIMEOUT 50000
 
 // Event group bits
 #define SLAVE1_CONNECTED_BIT (1 << 0)
@@ -147,7 +147,7 @@ void close_socket(int sock) {
 void configure_motor_with_sockets() {
     const char *initial_frequency = "50"; // Initial frequency (50 Hz)
     const char *phases[] = {"A", "B", "C"}; // Predefined phases
-    const char *slave_ips[MAX_SLAVES] = {NULL, NULL, NULL}; // To store discovered IPs
+    const char *slave_ips[] = {NULL, NULL, NULL}; // To store discovered IPs
     int discovered_slaves = 0;
 
     // Discover slaves dynamically using MDNS

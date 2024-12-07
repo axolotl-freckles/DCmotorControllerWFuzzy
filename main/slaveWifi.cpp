@@ -96,6 +96,10 @@ static void wifi_init(void) {
 	esp_wifi_set_mode(WIFI_MODE_STA);
 	esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
 	esp_wifi_start();
+
+	ESP_ERROR_CHECK(mdns_init());
+	ESP_ERROR_CHECK(mdns_hostname_set("esp32_slave"));
+	ESP_ERROR_CHECK(mdns_service_add("AC_CONTROL_SLAVE", MDNS_SERVICE_TYPE_SLAVE, "_tcp", SLAVE_PORT, NULL, 0));
 }
 
 void innit_slave_wifi(QueueHandle_t spwm_config_q) {
@@ -133,6 +137,7 @@ static bool connect_to_master(const char *ip, int port) {
 	dest_addr.sin_port = htons(port);
 	inet_pton(AF_INET, ip, &dest_addr.sin_addr);
 
+	ESP_LOGI(TAG, "Creating socket at %d", port);
 	int sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
 		ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
@@ -157,9 +162,6 @@ static bool connect_to_master(const char *ip, int port) {
 // Tarea para descubrir al maestro mediante mDNS
 static void mdns_discovery_task(void *pvParameters) {
 	ESP_LOGI(TAG, "Searching for master via mDNS...");
-	ESP_ERROR_CHECK(mdns_init());
-	ESP_ERROR_CHECK(mdns_hostname_set("esp32_slave"));
-	ESP_ERROR_CHECK(mdns_service_add("AC_CONTROL_SLAVE", MDNS_SERVICE_TYPE_SLAVE, "_tcp", SLAVE_PORT, NULL, 0));
 
 	mdns_result_t *results = NULL;
 	esp_err_t err = mdns_query_ptr(MDNS_SERVICE_TYPE_MASTER, "_tcp", MDNS_QUERY_TIMEOUT, 10, &results);

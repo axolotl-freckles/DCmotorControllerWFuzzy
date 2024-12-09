@@ -32,6 +32,7 @@ public:
 
 	void taskFunction() {
 		TickType_t previousWakeTime = xTaskGetTickCount();
+		char buffer[BUFFSIZE];
 		float datapoints[n_channels] = {0.0f};
 		int offset;
 		while (true) {
@@ -43,7 +44,6 @@ public:
 			buffer[BUFFSIZE-2] = '\n';
 			buffer[BUFFSIZE-1] = '\0';
 
-			// uart_write_bytes(_uart_num, buffer, std::strlen(buffer));
 			_communicationProtocol->transmit(buffer, std::strlen(buffer));
 			xTaskDelayUntil(&previousWakeTime, SAMPLE_TIME_ms * 5 / portTICK_PERIOD_MS);
 		}
@@ -65,7 +65,6 @@ public:
 	}
 
 private:
-	char buffer[BUFFSIZE];
 	QueueHandle_t _channels[n_channels];
 	CommProtocol* _communicationProtocol;
 };

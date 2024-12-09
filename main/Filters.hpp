@@ -12,9 +12,21 @@
 
 class Filter {
 public:
+	/**
+	 * @brief Passes the value through a filter and returns the filtered value
+	 * 
+	 * @param value Next sample on the signal to filter
+	 * @return Sample of the filtered signal
+	 */
 	virtual float operator() (float value) = 0;
 };
 
+/**
+ * @brief Sliding average filter, filters the signal by
+ * passing it through an average of the last 'n' samples
+ * 
+ * @tparam av_window_size: the amount of samples to average.
+ */
 template <int av_window_size = 2>
 class SlidingAverage : public Filter {
 public:
@@ -22,7 +34,7 @@ public:
 	SlidingAverage();
 	SlidingAverage(float starting_average);
 
-	inline float* samples() const { return _samples; }
+	inline const float* samples()  const { return _samples; }
 	inline float current_average() const { return _curr_av; }
 
 	inline virtual float operator() (float value) override {
@@ -38,12 +50,16 @@ private:
 	int idx;
 };
 
+/**
+ * @brief LowPass capacitive filter
+ * 
+ */
 class LowPass : public Filter {
 public:
 	explicit LowPass(const LowPass &other);
 	LowPass(float rc, float sampleTime_s);
 
-	inline float alpha() const { return _alpha; }
+	inline float alpha()   const { return _alpha; }
 	inline float prevVal() const { return _prev_val; }
 
 	inline virtual float operator() (float value) override {

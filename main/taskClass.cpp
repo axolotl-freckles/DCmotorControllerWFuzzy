@@ -12,31 +12,31 @@ void taskFunctionWrapper(void* taskClass) {
 }
 
 Task::Task(const char* name, uint32_t stack_size, UBaseType_t prio) :
-taskName(name), stackSize(stack_size), priority(prio), taskHandle(NULL)
+_taskName(name), _stackSize(stack_size), _priority(prio), _taskHandle(NULL)
 { }
-Task::~Task() {
-	vTaskSuspend(taskHandle);
-	vTaskDelete(taskHandle);
-	taskHandle = nullptr;
+virtual Task::~Task() {
+	vTaskSuspend(_taskHandle);
+	vTaskDelete(_taskHandle);
+	_taskHandle = nullptr;
 }
 void Task::start() {
-	if (taskHandle == NULL) {
+	if (_taskHandle == NULL) {
 		xTaskCreate(
 			// taskFunctionWrapper,
 			[] (void * args) {((Task*)args)->taskFunction();},
-			taskName,
-			stackSize,
+			_taskName,
+			_stackSize,
 			this,
-			priority,
-			&taskHandle
+			_priority,
+			&_taskHandle
 		);
 	}
 	else {
-		vTaskResume(taskHandle);
+		vTaskResume(_taskHandle);
 	}
 }
 void Task::stop() {
-	vTaskSuspend(taskHandle);
+	vTaskSuspend(_taskHandle);
 }
 }
 #endif

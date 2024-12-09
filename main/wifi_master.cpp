@@ -88,7 +88,7 @@ void init_wifi_as_ap() {
 }
 
 // Initialize communication with a slave
-int initialize_socket(const char *ip, int port) {
+int initialize_socket(const char *ip, int port, bool slave=true) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         ESP_LOGE(TAG, "Failed to create socket");
@@ -104,13 +104,15 @@ int initialize_socket(const char *ip, int port) {
         return -1;
     }
 
-    if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        ESP_LOGE(TAG, "Failed to connect to slave at %s:%d", ip, port);
-        close(sock);
-        return -1;
-    }
+    if (slave) {
+        if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+            ESP_LOGE(TAG, "Failed to connect to slave at %s:%d", ip, port);
+            close(sock);
+            return -1;
+        }
 
-    ESP_LOGI(TAG, "Connected to slave at %s:%d", ip, port);
+        ESP_LOGI(TAG, "Connected to slave at %s:%d", ip, port);
+    }
     return sock;
 }
 
@@ -150,6 +152,8 @@ void configure_motor_with_sockets() {
     const char *slave_ips[] = {NULL, NULL, NULL}; // To store discovered IPs
     int discovered_slaves = 0;
 
+    int master_socket = initialize_socket("192.168.4.1", MASTER_PORT, false);
+
     // Discover slaves dynamically using MDNS
     ESP_LOGI(TAG, "Discovering slaves via MDNS...");
     for (int i = 0; i < MAX_SLAVES; i++) {
@@ -169,6 +173,7 @@ void configure_motor_with_sockets() {
             mdns_query_results_free(result);
         } else {
             ESP_LOGW(TAG, "Slave %d not found via MDNS", i + 1);
+            i-= 1;
         }
     }
 
@@ -188,7 +193,7 @@ void configure_motor_with_sockets() {
         int sock = -1;
 
         while (attempts < max_attempts) {
-            sock = initialize_socket(slave_ips[i], 12345); // Fixed port: 12345
+            sock = initialize_socket(slave_ips[i], SLAVE_PORT); // Fixed port: 12345
             if (sock >= 0) {
                 ESP_LOGI(TAG, "Successfully connected to slave %s after %d attempt(s)", slave_ips[i], attempts + 1);
                 break;

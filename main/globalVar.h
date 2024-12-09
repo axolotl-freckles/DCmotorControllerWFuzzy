@@ -26,8 +26,8 @@ inline float rpm2rad_s(const float val) {return val*(2*M_PI/60);}
 constexpr int ADC_BITWIDTH = 9;
 constexpr int ADC_MAX      = (1<<ADC_BITWIDTH)-1;
 
-constexpr int PWM_OUT_GPIO = 27;
-constexpr int PWM_RESOLUTION = 8;
+constexpr int PWM_OUT_GPIO   = 27;
+constexpr int PWM_RESOLUTION =  8;
 constexpr int PWM_MAX        = (1<<PWM_RESOLUTION)-1;
 constexpr ledc_channel_t PWM_CHANNEL = LEDC_CHANNEL_0;
 
@@ -39,8 +39,8 @@ constexpr int A_PWM_OUT_GPIO = 27;
 constexpr int B_PWM_OUT_GPIO = 26;
 constexpr int C_PWM_OUT_GPIO = 25;
 
-constexpr float AC_OUT_MAX = 0.95f;
-constexpr float AC_OUT_MIN = 0.05f;
+constexpr float AC_OUT_MAX = 0.99f;
+constexpr float AC_OUT_MIN = 0.01f;
 
 constexpr int TELEMETRY_TX_PIN = 32;
 

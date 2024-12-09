@@ -85,13 +85,13 @@ static void wifi_init(void) {
 	wifi_config_t wifi_config = {
 		.sta = {
 			.ssid = WIFI_SSID,
-				.password = WIFI_PASS,
-				.threshold = {.authmode = WIFI_AUTH_WPA2_PSK},
-				.pmf_cfg = {
-					.capable = true,
-					.required = false
-				},
+			.password = WIFI_PASS,
+			.threshold = {.authmode = WIFI_AUTH_WPA2_PSK},
+			.pmf_cfg = {
+				.capable = true,
+				.required = false
 			},
+		},
 	};
 	esp_wifi_set_mode(WIFI_MODE_STA);
 	esp_wifi_set_config(WIFI_IF_STA, &wifi_config);

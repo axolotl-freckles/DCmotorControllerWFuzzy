@@ -14,7 +14,7 @@ void taskFunctionWrapper(void* taskClass) {
 Task::Task(const char* name, uint32_t stack_size, UBaseType_t prio) :
 _taskName(name), _stackSize(stack_size), _priority(prio), _taskHandle(NULL)
 { }
-virtual Task::~Task() {
+Task::~Task() {
 	vTaskSuspend(_taskHandle);
 	vTaskDelete(_taskHandle);
 	_taskHandle = nullptr;

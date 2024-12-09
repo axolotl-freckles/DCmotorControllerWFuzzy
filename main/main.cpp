@@ -20,7 +20,7 @@
 #include "TakagiTsugenoController.cpp"
 #include "DataProcessTask.cpp"
 #include "Telemetry.cpp"
-#ifdef CONFIG_CONTROLLER_TYPE_DC
+#ifdef CONFIG_MOTOR_TYPE_DC
 #define REQUIRES_DATA_PROCESS
 #define REQUIRES_TELEMETRY
 
@@ -164,7 +164,7 @@ extern "C" void app_main(void)
 	);
 #endif
 
-#ifdef CONFIG_CONTROLLER_TYPE_DC
+#ifdef CONFIG_MOTOR_TYPE_DC
 	// ############################################ DC CONTROLLER
 #elif CONFIG_AC_CONTROLLER_ROLE_COMPLETE
 	// ############################################ COMPLETE AC CONTROLLER
@@ -185,7 +185,7 @@ extern "C" void app_main(void)
 	telemetryTask.start();
 #endif
 
-#ifdef CONFIG_CONTROLLER_TYPE_DC
+#ifdef CONFIG_MOTOR_TYPE_DC
 	controllerTask.start();
 #elif CONFIG_AC_CONTROLLER_ROLE_COMPLETE
 	controllerTask.start();

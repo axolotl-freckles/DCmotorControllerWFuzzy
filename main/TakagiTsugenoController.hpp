@@ -44,12 +44,12 @@ public:
 
 	inline const std::vector<PIDController,
 		std::allocator<PIDController>
-	>::const_iterator begin() const { return control_laws.begin(); }
+	>::const_iterator begin() const { return _control_laws.begin(); }
 	inline const std::vector<PIDController,
 		std::allocator<PIDController>
-	>::const_iterator end()  const { return control_laws.end(); }
+	>::const_iterator end()  const { return _control_laws.end(); }
 
-	inline const Fuzzyficator& fuzzyficator() const { return fuzzyficator_; }
+	inline const Fuzzyficator& fuzzyficator() const { return _fuzzyficator; }
 
 	/**
 	 * @brief Calculates the control signal u using Takagi-Tsugeno
@@ -57,10 +57,10 @@ public:
 	 * 
 	 * @param fuzzyficable_val value that determines the fuzzyfication
 	 * @param input value to pass to the PID controllers
-	 * @return u
+	 * @return control signal
 	 */
 	float operator() (float fuzzyficable_val, float input);
 private:
-	Fuzzyficator fuzzyficator_;
-	std::vector<PIDController> control_laws;
+	Fuzzyficator _fuzzyficator;
+	std::vector<PIDController> _control_laws;
 };

@@ -39,17 +39,17 @@ extern "C" {
 class Task {
 public:
 	Task(const char* name, uint32_t stack_size, UBaseType_t prio);
-	~Task();
+	virtual ~Task();
 
 	virtual void taskFunction() = 0;
 
 	void start();
 	void stop();
 private:
-	const char*  taskName;
-	uint32_t     stackSize;
-	UBaseType_t  priority;
-	TaskHandle_t taskHandle;
+	const char*  _taskName;
+	uint32_t     _stackSize;
+	UBaseType_t  _priority;
+	TaskHandle_t _taskHandle;
 };
 
 }

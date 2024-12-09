@@ -71,6 +71,12 @@ private:
 	std::vector<Mem_func> mem_funcs;
 };
 
+enum Memf_edge {
+	LEFTMOST,
+	NONE,
+	RIGHTMOST
+};
+
 /**
  * @brief Triangle membership function
  * 
@@ -92,7 +98,7 @@ struct Tria_memf {
 	 * yield 1.0, a positive value indicates that anything to the right of 'm'
 	 * will yield 1.0. Zero makes the function behave normally.
 	 */
-	Tria_memf(const float a, const float m, const float b, const int edge=0);
+	Tria_memf(const float a, const float m, const float b, Memf_edge edge=NONE);
 
 	/**
 	 * @brief Calculates membership function
@@ -127,7 +133,7 @@ struct Trap_memf {
 	 * yield 1.0, a positive value indicates that anything to the right of 'm'
 	 * will yield 1.0. Zero makes the function behave normally.
 	 */
-	Trap_memf(const float a, const float b, const float c, const float d, const int edge=0);
+	Trap_memf(const float a, const float b, const float c, const float d, Memf_edge edge=NONE);
 	/**
 	 * @brief Calculates membership function
 	 * 
@@ -141,7 +147,7 @@ struct Bell_memf {
 	const float mid;
 	const int edge;
 
-	Bell_memf(const float std_dev, const float mid, const int edge=0);
+	Bell_memf(const float std_dev, const float mid, Memf_edge edge=NONE);
 	float operator()(const float value);
 };
 

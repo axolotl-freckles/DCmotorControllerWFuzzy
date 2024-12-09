@@ -1,0 +1,69 @@
+menu "Wifi Configuration"
+    config WIFI_SSID
+        string "Wi-Fi SSID"
+        default "Tu_SSID"
+        help
+            The SSID of the Wi-Fi network to connect to.
+    
+    config WIFI_PASSWORD
+        string "Wi-Fi Password"
+        default "Tu_Contraseña"
+        help
+            The password of the Wi-Fi network to connect to.
+    
+   
+    config ESP_WIFI_CHANNEL
+        int "WiFi Channel"
+        range 1 13
+        default 1
+        help
+            WiFi channel (network channel) for the example to use.
+
+    config ESP_MAX_STA_CONN
+        int "Maximal STA connections"
+        default 4
+        help
+            Max number of the STA connects to AP.
+endmenu
+
+menu "Motor Controller Configuration"
+    choice MOTOR_TYPE
+        prompt "Motor type"
+        default  MOTOR_TYPE_AC
+        help
+            Select between an AC motor and a DC motor
+
+        config MOTOR_TYPE_DC
+            bool "DC"
+        config MOTOR_TYPE_AC
+            bool "AC"
+    endchoice
+
+    choice DC_CONTROLLER_TYPE
+        depends on MOTOR_TYPE_DC
+        prompt "DC Controller type"
+        default  DC_CONTROLLER_PID
+        help
+            Select between PID controller or fuzzy controller
+
+        config DC_CONTROLLER_PID
+            bool "PID"
+        config DC_CONTROLLER_FUZZY
+            bool "fuzzy"
+    endchoice
+
+    choice AC_CONTROLLER_ROLE
+        depends on MOTOR_TYPE_AC
+        prompt "AC Controller type"
+        default AC_CONTROLLER_ROLE_COMPLETE
+        help
+            complete does the three phases, master coordinates, slave just has one phase
+        
+        config AC_CONTROLLER_ROLE_COMPLETE
+            bool "complete"
+        config AC_CONTROLLER_ROLE_MASTER
+            bool "master"
+        config AC_CONTROLLER_ROLE_SLAVE
+            bool "slave"
+    endchoice
+endmenu
